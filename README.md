@@ -49,6 +49,18 @@ The goal of each algorithm is to drive the yellow circle onto the white diamond.
 pip install -r REQUIREMENTS.txt
 ```
 
+### Optional: gifsicle
+
+If [`gifsicle`](https://www.lcdf.org/gifsicle/) is installed and available on
+your `PATH`, it is invoked automatically after each GIF is written to apply
+delta-frame optimisation (`-O3`). Because the terrain background is static
+across all frames, this typically reduces file size by 50–80% with no change
+to visual quality or frame count.
+
+If `gifsicle` is not found, a warning is printed once and the program
+continues normally, producing a valid (unoptimised) GIF. Pass `--no-gifsicle`
+to disable gifsicle entirely and suppress the warning.
+
 ## Usage
 
 ```
@@ -85,6 +97,7 @@ increments automatically to avoid overwriting existing files.
 | `--levy-exp`             |       | `float`  | `1.5`      | **FA only.** Lévy exponent `λ` — controls tail weight of the Lévy distribution. Only used when `--variant levy`. Typical range `[1.0, 2.0]`. Error if used with a non-FA algorithm.                             |
 | `--dot-size`             |       | `int`    | *(auto)*   | Agent dot radius in pixels. Omit to scale automatically: `max(2, round(min(W, H) / 35))`                                                                                                                        |
 | `--detailed`             |       | flag     | off        | Append a statistics bar (150 px wide) to the right of every frame. See [Detailed output](#detailed-output).                                                                                                     |
+| `--no-gifsicle`          |       | flag     | off        | Disable `gifsicle` post-processing and suppress the "not found" warning.                                                                                                                                        |
 | `--output-prefix`        | `-o`  | `string` | `out`      | Prefix for output filenames (`<prefix>_NN.gif`)                                                                                                                                                                 |
 | `--output-dir`           |       | `path`   | `.`        | Directory to write output GIFs into (created if absent)                                                                                                                                                         |
 

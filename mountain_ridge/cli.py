@@ -27,6 +27,7 @@ class JobConfig:
     alpha: float | None
     levy_exp: float | None
     detailed: bool
+    use_gifsicle: bool
     output_prefix: str
     output_dir: Path
 
@@ -205,6 +206,15 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
+        "--no-gifsicle",
+        action="store_true",
+        default=False,
+        dest="no_gifsicle",
+        help=(
+            "Disable gifsicle post-processing even if gifsicle is installed."
+        ),
+    )
+    parser.add_argument(
         "--detailed",
         action="store_true",
         default=False,
@@ -325,6 +335,7 @@ def parse_jobs() -> list[JobConfig]:
             alpha=alpha,
             levy_exp=levy_exp,
             detailed=args.detailed,
+            use_gifsicle=not args.no_gifsicle,
             output_prefix=args.output_prefix,
             output_dir=output_dir,
         ))

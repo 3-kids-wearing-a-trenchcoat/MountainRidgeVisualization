@@ -1,5 +1,6 @@
 """Entry point: parse CLI jobs and run each one."""
 
+import shutil
 from pathlib import Path
 
 from tqdm import tqdm
@@ -31,6 +32,7 @@ def _next_output_path(output_dir: Path, prefix: str) -> Path:
 def _run_job(
     job: JobConfig,
     output_path: Path,
+    use_gifsicle: bool,
     progress_position: int = 0,
 ) -> None:
     """Instantiate space and swarm, run simulation, write GIF."""
@@ -74,6 +76,7 @@ def _run_job(
         dot_size=job.dot_size,
         colour_by_score=(job.algorithm == "fa"),
         detailed=job.detailed,
+        use_gifsicle=use_gifsicle,
         desc=output_path.name,
         progress_position=progress_position,
     )
@@ -83,6 +86,15 @@ def main() -> None:
     """Parse jobs and run each one."""
     jobs = parse_jobs()
     batch = len(jobs) > 1
+
+    use_gifsicle = jobs[0].use_gifsicle
+    if use_gifsicle and shutil.which("gifsicle") is None:
+        tqdm.write(
+            "Warning: gifsicle not found on PATH — "
+            "output GIFs will not be compressed. "
+            "Install gifsicle or pass --no-gifsicle to suppress this warning."
+        )
+        use_gifsicle = False
 
     outer: tqdm[JobConfig] = tqdm(
         jobs,
@@ -102,6 +114,7 @@ def main() -> None:
             _run_job(
                 job,
                 output_path,
+                use_gifsicle=use_gifsicle,
                 progress_position=1 if batch else 0,
             )
             tqdm.write(f"  -> saved {output_path}")

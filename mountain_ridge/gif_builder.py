@@ -1,5 +1,7 @@
 """Build animated GIFs from swarm simulation runs."""
 
+import shutil
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -180,6 +182,7 @@ def build_gif(
     dot_size: int | None = None,
     colour_by_score: bool = False,
     detailed: bool = False,
+    use_gifsicle: bool = True,
     desc: str = "Simulating",
     progress_position: int = 0,
 ) -> None:
@@ -280,5 +283,11 @@ def build_gif(
         append_images=frames[1:],
         loop=0,
         duration=duration_ms,
-        optimize=False,
+        optimize=True,
     )
+
+    if use_gifsicle and shutil.which("gifsicle") is not None:
+        subprocess.run(
+            ["gifsicle", "--batch", "-O3", str(output_path)],
+            check=True,
+        )
