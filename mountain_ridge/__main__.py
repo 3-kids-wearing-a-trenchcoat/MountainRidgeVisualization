@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from tqdm import tqdm
+
 from mountain_ridge.cli import JobConfig, parse_jobs
 from mountain_ridge.gif_builder import build_gif
 from mountain_ridge.search_space.functions import get_space
@@ -24,7 +26,11 @@ def _next_output_path(output_dir: Path, prefix: str) -> Path:
         n += 1
 
 
-def _run_job(job: JobConfig, output_path: Path) -> None:
+def _run_job(
+    job: JobConfig,
+    output_path: Path,
+    progress_position: int = 0,
+) -> None:
     """Instantiate space and swarm, run simulation, write GIF."""
     space_fn, grid = get_space(job.space, job.seed, job.dimensions)
 
@@ -49,17 +55,37 @@ def _run_job(job: JobConfig, output_path: Path) -> None:
         iterations_per_frame=job.iterations_per_frame,
         fps=job.fps,
         output_path=output_path,
+        desc=output_path.name,
+        progress_position=progress_position,
     )
 
 
 def main() -> None:
     """Parse jobs and run each one."""
     jobs = parse_jobs()
-    for job in jobs:
-        output_path = _next_output_path(job.output_dir, job.output_prefix)
-        print(f"Generating {output_path} ...")
-        _run_job(job, output_path)
-        print(f"  -> saved {output_path}")
+    batch = len(jobs) > 1
+
+    outer: tqdm[JobConfig] = tqdm(
+        jobs,
+        desc="Batch",
+        unit="gif",
+        position=0,
+        leave=True,
+        dynamic_ncols=True,
+        disable=not batch,
+    )
+    with outer:
+        for job in outer:
+            output_path = _next_output_path(
+                job.output_dir, job.output_prefix
+            )
+            tqdm.write(f"Generating {output_path} ...")
+            _run_job(
+                job,
+                output_path,
+                progress_position=1 if batch else 0,
+            )
+            tqdm.write(f"  -> saved {output_path}")
 
 
 if __name__ == "__main__":

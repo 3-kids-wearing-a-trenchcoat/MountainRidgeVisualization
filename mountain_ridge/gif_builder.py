@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 from PIL import Image, ImageDraw
+from tqdm import tqdm
 
 from mountain_ridge.swarm.base import Position, Swarm
 
@@ -74,6 +75,8 @@ def build_gif(
     iterations_per_frame: int,
     fps: int,
     output_path: str | Path,
+    desc: str = "Simulating",
+    progress_position: int = 0,
 ) -> None:
     """Run *swarm* for *n_iterations* and write an animated GIF.
 
@@ -98,16 +101,25 @@ def build_gif(
         _render_frame(bg, swarm.get_positions(), swarm.get_best_position())
     ]
 
-    for i in range(1, n_iterations + 1):
-        swarm.update()
-        if i % iterations_per_frame == 0:
-            frames.append(
-                _render_frame(
-                    bg,
-                    swarm.get_positions(),
-                    swarm.get_best_position(),
+    with tqdm(
+        total=n_iterations,
+        desc=desc,
+        unit="iter",
+        position=progress_position,
+        leave=(progress_position == 0),
+        dynamic_ncols=True,
+    ) as bar:
+        for i in range(1, n_iterations + 1):
+            swarm.update()
+            bar.update(1)
+            if i % iterations_per_frame == 0:
+                frames.append(
+                    _render_frame(
+                        bg,
+                        swarm.get_positions(),
+                        swarm.get_best_position(),
+                    )
                 )
-            )
 
     duration_ms = max(1, round(1000 / fps))
     frames[0].save(
