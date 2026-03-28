@@ -36,7 +36,7 @@ increments automatically to avoid overwriting existing files.
 | `--dimensions` | `-d` | `WxH` | `100x100` | Width and height of the search space grid |
 | `--seed` | `-s` | `int` | *(random)* | Random seed for the search space and agents. Omit for a fresh random seed per job |
 | `--algorithm` | `-a` | `string` | `pso` | Optimization algorithm to use. Available: `pso` |
-| `--space` | | `string` | `gaussian` | Search space function. Available: `gaussian` |
+| `--space` | | `string` | `gaussian` | Search space function. Available: `gaussian`, `rastrigin`, `ackley`, `multiwell`, `deceptive` |
 | `--n-agents` | `-n` | `int` | `20` | Number of agents in the swarm |
 | `--iterations` | `-i` | `int` | `100` | Total number of simulation steps |
 | `--iterations-per-frame` | | `int` | `5` | Simulation steps between captured frames |
