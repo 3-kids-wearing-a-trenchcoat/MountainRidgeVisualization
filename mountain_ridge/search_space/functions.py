@@ -8,7 +8,9 @@ from numpy.typing import NDArray
 from mountain_ridge.swarm.base import Position, SearchSpace
 
 
-SpaceFactory = Callable[[int, tuple[int, int]], SearchSpace]
+SpaceFactory = Callable[
+    [int, tuple[int, int]], tuple[SearchSpace, NDArray[np.float64]]
+]
 
 _REGISTRY: dict[str, SpaceFactory] = {}
 
@@ -25,7 +27,7 @@ def get_space(
     name: str,
     seed: int,
     dimensions: tuple[int, int],
-) -> SearchSpace:
+) -> tuple[SearchSpace, NDArray[np.float64]]:
     """Return an instantiated search space by name."""
     if name not in _REGISTRY:
         raise ValueError(
@@ -64,7 +66,7 @@ def _bilinear_interpolate(
 def _gaussian_mixture(
     seed: int,
     dimensions: tuple[int, int],
-) -> SearchSpace:
+) -> tuple[SearchSpace, NDArray[np.float64]]:
     """Height map built from a sum of random Gaussians."""
     rng = np.random.default_rng(seed)
     w, h = dimensions
@@ -87,4 +89,4 @@ def _gaussian_mixture(
     def space(position: Position) -> float:
         return _bilinear_interpolate(grid, position)
 
-    return space
+    return space, grid
