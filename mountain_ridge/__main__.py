@@ -41,12 +41,15 @@ def _run_job(
             f"Available: {list(_ALGORITHMS)}"
         )
 
-    swarm = swarm_cls(  # type: ignore[call-arg]
+    kwargs: dict[str, object] = dict(
         n_agents=job.n_agents,
         search_space=space_fn,
         dimensions=job.dimensions,
         seed=job.seed,
     )
+    if job.algorithm == "pso" and job.inertia is not None:
+        kwargs["w"] = job.inertia
+    swarm = swarm_cls(**kwargs)  # type: ignore[call-arg]
 
     build_gif(
         swarm=swarm,

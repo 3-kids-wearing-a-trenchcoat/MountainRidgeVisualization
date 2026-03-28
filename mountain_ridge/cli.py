@@ -20,6 +20,7 @@ class JobConfig:
     iterations_per_frame: int
     fps: int
     dot_size: int | None
+    inertia: float | None
     output_prefix: str
     output_dir: Path
 
@@ -130,6 +131,17 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
+        "--inertia",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="W",
+        help=(
+            "PSO inertia weight w in [0, 1] (default: 0.0). "
+            "Error if used with a non-PSO algorithm."
+        ),
+    )
+    parser.add_argument(
         "--output-prefix", "-o",
         default="out",
         metavar="PREFIX",
@@ -148,11 +160,22 @@ def parse_jobs() -> list[JobConfig]:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    if args.inertia is not None:
+        bad = [a for a in args.algorithm if a != "pso"]
+        if bad:
+            parser.error(
+                f"--inertia is only supported with --algorithm pso "
+                f"(got: {bad})"
+            )
+
     seeds: list[int | None] = (
         [None] if args.seed is None else args.seed
     )
     dot_sizes: list[int | None] = (
         [None] if args.dot_size is None else args.dot_size
+    )
+    inertias: list[float | None] = (
+        [None] if args.inertia is None else args.inertia
     )
 
     jobs: list[JobConfig] = []
@@ -166,8 +189,9 @@ def parse_jobs() -> list[JobConfig]:
         args.iterations_per_frame,
         args.fps,
         dot_sizes,
+        inertias,
     ):
-        dims, seed, algo, space, n_agents, iters, ipf, fps, dot = combo
+        dims, seed, algo, space, n_agents, iters, ipf, fps, dot, w = combo
         resolved_seed: int = (
             random.randint(0, 2**31 - 1) if seed is None else seed
         )
@@ -181,6 +205,7 @@ def parse_jobs() -> list[JobConfig]:
             iterations_per_frame=ipf,
             fps=fps,
             dot_size=dot,
+            inertia=w,
             output_prefix=args.output_prefix,
             output_dir=output_dir,
         ))
