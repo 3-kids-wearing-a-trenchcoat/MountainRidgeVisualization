@@ -59,20 +59,25 @@ increments automatically to avoid overwriting existing files.
 
 ### Flags
 
-| Flag | Short | Type | Default | Description |
-|------|-------|------|---------|-------------|
-| `--dimensions` | `-d` | `WxH` | `100x100` | Width and height of the search space grid |
-| `--seed` | `-s` | `int` | *(random)* | Random seed for the search space and agents. Omit for a fresh random seed per job |
-| `--algorithm` | `-a` | `string` | `pso` | Optimization algorithm to use. Available: `pso` |
-| `--space` | | `string` | `gaussian` | Search space function. Available: `gaussian`, `rastrigin`, `ackley`, `multiwell`, `deceptive` |
-| `--n-agents` | `-n` | `int` | `20` | Number of agents in the swarm |
-| `--iterations` | `-i` | `int` | `100` | Total number of simulation steps |
-| `--iterations-per-frame` | | `int` | `5` | Simulation steps between captured frames |
-| `--fps` | | `int` | `10` | Playback speed of the output GIF (frames per second) |
-| `--inertia` | | `float` | `0.0` | **PSO only.** Inertia weight `w` — scales how much of the previous velocity carries over each iteration. Typical range `[0, 1]`. Error if used with a non-PSO algorithm. |
-| `--dot-size` | | `int` | *(auto)* | Agent dot radius in pixels. Omit to scale automatically: `max(2, round(min(W, H) / 35))` |
-| `--output-prefix` | `-o` | `string` | `out` | Prefix for output filenames (`<prefix>_NN.gif`) |
-| `--output-dir` | | `path` | `.` | Directory to write output GIFs into (created if absent) |
+| Flag                     | Short | Type     | Default    | Description                                                                                                                                                                                                     |
+|--------------------------|-------|----------|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--dimensions`           | `-d`  | `WxH`    | `100x100`  | Width and height of the search space grid                                                                                                                                                                       |
+| `--seed`                 | `-s`  | `int`    | *(random)* | Random seed for the search space and agents. Omit for a fresh random seed per job                                                                                                                               |
+| `--algorithm`            | `-a`  | `string` | `pso`      | Optimization algorithm to use. Available: `pso`, `fa`  (Particle Swarm Optimization and Firefly Algorithm respectively)                                                                                         |
+| `--space`                |       | `string` | `gaussian` | Search space function. Available: `gaussian`, `rastrigin`, `ackley`, `multiwell`, `deceptive`                                                                                                                   |
+| `--n-agents`             | `-n`  | `int`    | `20`       | Number of agents in the swarm                                                                                                                                                                                   |
+| `--iterations`           | `-i`  | `int`    | `100`      | Total number of simulation steps                                                                                                                                                                                |
+| `--iterations-per-frame` |       | `int`    | `5`        | Simulation steps between captured frames                                                                                                                                                                        |
+| `--fps`                  |       | `int`    | `10`       | Playback speed of the output GIF (frames per second)                                                                                                                                                            |
+| `--inertia`              |       | `float`  | `0.0`      | **PSO only.** Inertia weight `w` — scales how much of the previous velocity carries over each iteration. Typical range `[0, 1]`. Error if used with a non-PSO algorithm.                                        |
+| `--variant`              |       | `string` | `brownian` | **FA only.** Random walk distribution: `brownian` (Gaussian step) or `levy` (heavy-tailed Lévy flight; better at escaping local minima). Error if used with a non-FA algorithm.                                 |
+| `--gamma`                |       | `float`  | `1.0`      | **FA only.** Light absorption coefficient `γ` — controls how quickly attractiveness decays with distance. Higher values shorten attraction range and preserve diversity. Error if used with a non-FA algorithm. |
+| `--beta0`                |       | `float`  | `1.0`      | **FA only.** Maximum attractiveness `β₀` at distance zero. Error if used with a non-FA algorithm.                                                                                                               |
+| `--alpha`                |       | `float`  | `0.25`     | **FA only.** Random walk step size `α`. Typical range `[0.01, 0.5]`. Error if used with a non-FA algorithm.                                                                                                     |
+| `--levy-exp`             |       | `float`  | `1.5`      | **FA only.** Lévy exponent `λ` — controls tail weight of the Lévy distribution. Only used when `--variant levy`. Typical range `[1.0, 2.0]`. Error if used with a non-FA algorithm.                             |
+| `--dot-size`             |       | `int`    | *(auto)*   | Agent dot radius in pixels. Omit to scale automatically: `max(2, round(min(W, H) / 35))`                                                                                                                        |
+| `--output-prefix`        | `-o`  | `string` | `out`      | Prefix for output filenames (`<prefix>_NN.gif`)                                                                                                                                                                 |
+| `--output-dir`           |       | `path`   | `.`        | Directory to write output GIFs into (created if absent)                                                                                                                                                         |
 
 ### Batch mode
 
@@ -103,8 +108,8 @@ progress and the inner bar tracks iterations within the current job.
 # Single GIF with a fixed seed and larger space
 python -m mountain_ridge --seed 42 --dimensions 200x200 --iterations 200
 
-# Compare two algorithms side-by-side (once a second algorithm is available)
-python -m mountain_ridge --algorithm pso --seed 99
+# Compare PSO and FA on the same seed and space
+python -m mountain_ridge --algorithm pso fa --seed 99 --space multiwell
 
 # Batch: sweep over several seeds, save to a dedicated folder
 python -m mountain_ridge --seed 10 20 30 40 --output-dir results --output-prefix sweep
