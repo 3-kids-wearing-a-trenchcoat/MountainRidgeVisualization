@@ -19,6 +19,7 @@ class JobConfig:
     iterations: int
     iterations_per_frame: int
     fps: int
+    dot_size: int | None
     output_prefix: str
     output_dir: Path
 
@@ -117,6 +118,18 @@ def parse_jobs() -> list[JobConfig]:
         help="Output GIF frames per second (default: 10)",
     )
     parser.add_argument(
+        "--dot-size",
+        nargs="+",
+        type=int,
+        default=None,
+        metavar="PX",
+        dest="dot_size",
+        help=(
+            "Agent dot radius in pixels. "
+            "Omit to scale automatically with the search space dimensions"
+        ),
+    )
+    parser.add_argument(
         "--output-prefix", "-o",
         default="out",
         metavar="PREFIX",
@@ -138,6 +151,9 @@ def parse_jobs() -> list[JobConfig]:
     seeds: list[int | None] = (
         [None] if args.seed is None else args.seed
     )
+    dot_sizes: list[int | None] = (
+        [None] if args.dot_size is None else args.dot_size
+    )
 
     jobs: list[JobConfig] = []
     for combo in itertools.product(
@@ -149,8 +165,9 @@ def parse_jobs() -> list[JobConfig]:
         args.iterations,
         args.iterations_per_frame,
         args.fps,
+        dot_sizes,
     ):
-        dims, seed, algo, space, n_agents, iters, ipf, fps = combo
+        dims, seed, algo, space, n_agents, iters, ipf, fps, dot = combo
         resolved_seed: int = (
             random.randint(0, 2**31 - 1) if seed is None else seed
         )
@@ -163,6 +180,7 @@ def parse_jobs() -> list[JobConfig]:
             iterations=iters,
             iterations_per_frame=ipf,
             fps=fps,
+            dot_size=dot,
             output_prefix=args.output_prefix,
             output_dir=output_dir,
         ))

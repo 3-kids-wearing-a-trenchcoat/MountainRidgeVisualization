@@ -55,6 +55,7 @@ def _run_job(
         iterations_per_frame=job.iterations_per_frame,
         fps=job.fps,
         output_path=output_path,
+        dot_size=job.dot_size,
         desc=output_path.name,
         progress_position=progress_position,
     )
