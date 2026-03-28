@@ -102,7 +102,7 @@ class PSOSwarm(Swarm):
     ) -> None:
         w_dim, h_dim = dimensions
         if v_max is None:
-            v_max = min(w_dim, h_dim) * 0.2
+            v_max = min(w_dim, h_dim) * 0.1
 
         rng = np.random.default_rng(seed)
         positions = rng.uniform(
