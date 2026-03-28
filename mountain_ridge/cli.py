@@ -87,9 +87,9 @@ def parse_jobs() -> list[JobConfig]:
     parser.add_argument(
         "--space",
         nargs="+",
-        default=["gaussian"],
+        default=["ridge"],
         metavar="SPACE",
-        help="Search space function (default: gaussian)",
+        help="Search space function (default: ridge)",
     )
     parser.add_argument(
         "--n-agents", "-n",

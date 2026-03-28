@@ -256,3 +256,61 @@ def _deceptive(
         return _bilinear_interpolate(grid, position)
 
     return space, grid
+
+
+@register("ridge")
+def _ridge(
+    seed: int,
+    dimensions: tuple[int, int],
+) -> tuple[SearchSpace, NDArray[np.float64]]:
+    """Realistic mountain terrain via spectral synthesis.
+
+    White noise is shaped in the frequency domain by a 1/f^β power-law
+    envelope (β ∈ [2.0, 2.5]), producing fractal terrain with features
+    at multiple scales: broad ridges, valleys, saddle points, and
+    plateaus.  A random directional bias elongates the landscape along
+    a dominant ridge axis.
+    """
+    rng = np.random.default_rng(seed)
+    w, h = dimensions
+
+    # White noise base.
+    noise = rng.standard_normal((h, w))
+
+    # Frequency coordinates for rfft2 output (shape: h × (w//2+1)).
+    fy = np.fft.fftfreq(h)[:, None]    # (h, 1)
+    fx = np.fft.rfftfreq(w)[None, :]   # (1, w//2+1)
+
+    # Decompose into ridge-parallel and ridge-perpendicular components.
+    angle = rng.uniform(0.0, np.pi)
+    cos_a = float(np.cos(angle))
+    sin_a = float(np.sin(angle))
+    fx_par  =  fx * cos_a + fy * sin_a
+    fx_perp = -fx * sin_a + fy * cos_a
+
+    # Divide the parallel component by anisotropy to concentrate power
+    # along the ridge axis, elongating the dominant terrain features.
+    anisotropy = rng.uniform(2.5, 4.0)
+    f_eff = np.sqrt(
+        (fx_par / anisotropy) ** 2 + fx_perp ** 2
+    )
+
+    # 1/f^β power-law envelope; DC zeroed to remove a uniform mean height.
+    beta = rng.uniform(2.0, 2.5)
+    f_eff[0, 0] = 1.0                   # prevent division by zero
+    envelope = f_eff ** (-beta / 2.0)
+    envelope[0, 0] = 0.0                # zero DC
+
+    # Filter spectrum and transform back to spatial domain.
+    terrain: NDArray[np.float64] = np.fft.irfft2(
+        np.fft.rfft2(noise) * envelope, s=(h, w)
+    )
+
+    # Normalise to [0, 1].
+    terrain -= float(terrain.min())
+    terrain /= float(terrain.max())
+
+    def space(position: Position) -> float:
+        return _bilinear_interpolate(terrain, position)
+
+    return space, terrain
