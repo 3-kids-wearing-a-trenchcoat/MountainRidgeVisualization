@@ -26,6 +26,54 @@ _STOPS_B = np.array([s[1][2] for s in _TERRAIN], dtype=np.float64)
 
 _AGENT_COLOUR: tuple[int, int, int] = (220, 50, 50)
 _BEST_COLOUR: tuple[int, int, int] = (255, 220, 0)
+_TRUE_MIN_COLOUR: tuple[int, int, int] = (255, 255, 255)
+
+
+def _find_global_minima(
+    grid: NDArray[np.float64],
+) -> list[tuple[int, int]]:
+    """Return (x, y) pixel coords of all local minima at the global depth.
+
+    A cell qualifies if it is lower than or equal to all 8 neighbours
+    AND its value is within 2 % of the grid's value range above the
+    true grid minimum.  The tolerance handles the discretisation gap
+    between intended equal-depth minima (e.g. multiwell) whose centres
+    do not fall exactly on grid points.
+    """
+    h, w = grid.shape
+    padded = np.pad(grid, 1, constant_values=np.inf)
+
+    is_local_min = np.ones((h, w), dtype=bool)
+    for dr, dc in [
+        (-1, -1), (-1, 0), (-1, 1),
+        ( 0, -1),          ( 0, 1),
+        ( 1, -1), ( 1, 0), ( 1, 1),
+    ]:
+        neighbour = padded[1 + dr: h + 1 + dr, 1 + dc: w + 1 + dc]
+        is_local_min &= grid <= neighbour
+
+    global_min = float(grid.min())
+    grid_range = float(grid.max()) - global_min
+    threshold = global_min + grid_range * 0.02
+
+    selected = np.argwhere(is_local_min & (grid <= threshold))
+    return [(int(c), int(r)) for r, c in selected]
+
+
+def _draw_diamond(
+    draw: ImageDraw.ImageDraw,
+    cx: int,
+    cy: int,
+    radius: int,
+) -> None:
+    """Draw a filled diamond (rotated square) centred at (cx, cy)."""
+    pts = [
+        (cx,          cy - radius),
+        (cx + radius, cy),
+        (cx,          cy + radius),
+        (cx - radius, cy),
+    ]
+    draw.polygon(pts, fill=_TRUE_MIN_COLOUR, outline=(0, 0, 0))
 
 
 def _grid_to_image(grid: NDArray[np.float64]) -> Image.Image:
@@ -106,6 +154,12 @@ def build_gif(
     )
 
     bg = _grid_to_image(grid)
+    marker_r = max(4, agent_radius + 2)
+    bg_draw = ImageDraw.Draw(bg)
+    for mx, my in _find_global_minima(grid):
+        _draw_diamond(bg_draw, mx, my, marker_r)
+    del bg_draw
+
     frames: list[Image.Image] = [
         _render_frame(
             bg,
