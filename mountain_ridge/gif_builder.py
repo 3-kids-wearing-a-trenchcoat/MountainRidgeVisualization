@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 
 from mountain_ridge.swarm.base import Position, Swarm
@@ -24,42 +24,61 @@ _STOPS_R = np.array([s[1][0] for s in _TERRAIN], dtype=np.float64)
 _STOPS_G = np.array([s[1][1] for s in _TERRAIN], dtype=np.float64)
 _STOPS_B = np.array([s[1][2] for s in _TERRAIN], dtype=np.float64)
 
-_BEST_COLOUR: tuple[int, int, int] = (255, 220, 0)
+_BEST_COLOUR: tuple[int, int, int] = (255, 255, 0)
 _TRUE_MIN_COLOUR: tuple[int, int, int] = (255, 255, 255)
 
-# Agent colour gradient: bright (low score) → dim (high score)
-_AGENT_BRIGHT: tuple[int, int, int] = (255, 240, 80)
-_AGENT_DIM: tuple[int, int, int] = (80, 10, 10)
+# Agent colour gradient: bright/best (low score) → dim/worst (high score)
+_AGENT_BRIGHT: tuple[int, int, int] = (255, 255, 0)   # yellow
+_AGENT_DIM: tuple[int, int, int] = (255, 0, 0)         # red
+
+# Fixed agent colour used when score-based colouring is disabled (e.g. PSO)
+_AGENT_COLOUR: tuple[int, int, int] = (255, 0, 0)      # red
+
+# Info bar (detailed output)
+_INFO_BAR_WIDTH: int = 150
+_BAR_BG: tuple[int, int, int] = (20, 20, 20)
+_BAR_LABEL: tuple[int, int, int] = (150, 150, 150)
+_BAR_VALUE: tuple[int, int, int] = (255, 255, 255)
+
+
+def _make_info_bar(
+    height: int,
+    iteration: int,
+    best_score: float,
+    best_iter: int,
+    global_min: float,
+) -> Image.Image:
+    """Render a vertical info bar showing simulation statistics."""
+    bar = Image.new("RGB", (_INFO_BAR_WIDTH, height), _BAR_BG)
+    draw = ImageDraw.Draw(bar)
+    font = ImageFont.load_default(size=13)
+    pad = 10
+    line_h = 18
+    gap = 8
+    y = pad
+    for label, value in [
+        ("Iteration", str(iteration)),
+        ("Best height", f"{best_score:.6f}"),
+        ("Best since", f"iter {best_iter}"),
+        ("Global min", f"{global_min:.6f}"),
+    ]:
+        draw.text((pad, y), label, fill=_BAR_LABEL, font=font)
+        y += line_h
+        draw.text((pad, y), value, fill=_BAR_VALUE, font=font)
+        y += line_h + gap
+    return bar
 
 
 def _find_global_minima(
     grid: NDArray[np.float64],
 ) -> list[tuple[int, int]]:
-    """Return (x, y) pixel coords of all local minima at the global depth.
+    """Return (x, y) pixel coords of every cell at the global minimum.
 
-    A cell qualifies if it is lower than or equal to all 8 neighbours
-    AND its value is within 2 % of the grid's value range above the
-    true grid minimum.  The tolerance handles the discretisation gap
-    between intended equal-depth minima (e.g. multiwell) whose centres
-    do not fall exactly on grid points.
+    A cell qualifies if and only if its value is exactly equal to the
+    lowest value anywhere in the grid (``grid.min()``).
     """
-    h, w = grid.shape
-    padded = np.pad(grid, 1, constant_values=np.inf)
-
-    is_local_min = np.ones((h, w), dtype=bool)
-    for dr, dc in [
-        (-1, -1), (-1, 0), (-1, 1),
-        ( 0, -1),          ( 0, 1),
-        ( 1, -1), ( 1, 0), ( 1, 1),
-    ]:
-        neighbour = padded[1 + dr: h + 1 + dr, 1 + dc: w + 1 + dc]
-        is_local_min &= grid <= neighbour
-
     global_min = float(grid.min())
-    grid_range = float(grid.max()) - global_min
-    threshold = global_min + grid_range * 0.02
-
-    selected = np.argwhere(is_local_min & (grid <= threshold))
+    selected = np.argwhere(grid == global_min)
     return [(int(c), int(r)) for r, c in selected]
 
 
@@ -114,16 +133,25 @@ def _render_frame(
     positions: list[Position],
     best: Position,
     agent_radius: int,
-    scores: list[float],
-    score_lo: float,
-    score_hi: float,
+    scores: list[float] | None = None,
+    score_lo: float = 0.0,
+    score_hi: float = 1.0,
 ) -> Image.Image:
-    """Draw agents and global best onto a copy of *bg*."""
+    """Draw agents and global best onto a copy of *bg*.
+
+    When *scores* is provided, each agent is coloured by its score
+    (bright = low score, dim = high score).  When *scores* is ``None``
+    all agents are drawn in the dim colour.
+    """
     frame = bg.copy()
     draw = ImageDraw.Draw(frame)
-    for pos, score in zip(positions, scores):
+    for i, pos in enumerate(positions):
         x, y = int(round(pos[0])), int(round(pos[1]))
-        colour = _score_to_colour(score, score_lo, score_hi)
+        colour = (
+            _score_to_colour(scores[i], score_lo, score_hi)
+            if scores is not None
+            else _AGENT_COLOUR
+        )
         r = agent_radius
         draw.ellipse(
             [x - r, y - r, x + r, y + r],
@@ -150,6 +178,8 @@ def build_gif(
     fps: int,
     output_path: str | Path,
     dot_size: int | None = None,
+    colour_by_score: bool = False,
+    detailed: bool = False,
     desc: str = "Simulating",
     progress_position: int = 0,
 ) -> None:
@@ -190,17 +220,39 @@ def build_gif(
         _draw_diamond(bg_draw, mx, my, marker_r)
     del bg_draw
 
-    frames: list[Image.Image] = [
-        _render_frame(
+    global_min = score_lo  # grid.min() already stored in score_lo
+
+    def _lookup_best_score() -> float:
+        bx, by = swarm.get_best_position()
+        return float(grid[int(round(by)), int(round(bx))])
+
+    best_ever: float = _lookup_best_score()
+    best_iter: int = 0
+
+    def _frame(iteration: int) -> Image.Image:
+        scores = swarm.get_scores() if colour_by_score else None
+        f = _render_frame(
             bg,
             swarm.get_positions(),
             swarm.get_best_position(),
             agent_radius,
-            swarm.get_scores(),
+            scores,
             score_lo,
             score_hi,
         )
-    ]
+        if detailed:
+            info = _make_info_bar(
+                f.height, iteration, best_ever, best_iter, global_min
+            )
+            wide = Image.new(
+                "RGB", (f.width + _INFO_BAR_WIDTH, f.height)
+            )
+            wide.paste(f, (0, 0))
+            wide.paste(info, (f.width, 0))
+            f = wide
+        return f
+
+    frames: list[Image.Image] = [_frame(0)]
 
     with tqdm(
         total=n_iterations,
@@ -213,18 +265,13 @@ def build_gif(
         for i in range(1, n_iterations + 1):
             swarm.update()
             bar.update(1)
+            if detailed:
+                current = _lookup_best_score()
+                if current < best_ever:
+                    best_ever = current
+                    best_iter = i
             if i % iterations_per_frame == 0:
-                frames.append(
-                    _render_frame(
-                        bg,
-                        swarm.get_positions(),
-                        swarm.get_best_position(),
-                        agent_radius,
-                        swarm.get_scores(),
-                        score_lo,
-                        score_hi,
-                    )
-                )
+                frames.append(_frame(i))
 
     duration_ms = max(1, round(1000 / fps))
     frames[0].save(

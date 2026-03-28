@@ -26,6 +26,7 @@ class JobConfig:
     beta0: float | None
     alpha: float | None
     levy_exp: float | None
+    detailed: bool
     output_prefix: str
     output_dir: Path
 
@@ -204,6 +205,15 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
+        "--detailed",
+        action="store_true",
+        default=False,
+        help=(
+            "Append an info bar to the right of each frame showing "
+            "the iteration number, current best height, and global minimum."
+        ),
+    )
+    parser.add_argument(
         "--output-prefix", "-o",
         default="out",
         metavar="PREFIX",
@@ -314,6 +324,7 @@ def parse_jobs() -> list[JobConfig]:
             beta0=beta0,
             alpha=alpha,
             levy_exp=levy_exp,
+            detailed=args.detailed,
             output_prefix=args.output_prefix,
             output_dir=output_dir,
         ))

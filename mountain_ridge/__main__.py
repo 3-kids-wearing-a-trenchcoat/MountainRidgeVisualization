@@ -72,6 +72,8 @@ def _run_job(
         fps=job.fps,
         output_path=output_path,
         dot_size=job.dot_size,
+        colour_by_score=(job.algorithm == "fa"),
+        detailed=job.detailed,
         desc=output_path.name,
         progress_position=progress_position,
     )
