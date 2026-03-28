@@ -24,9 +24,12 @@ _STOPS_R = np.array([s[1][0] for s in _TERRAIN], dtype=np.float64)
 _STOPS_G = np.array([s[1][1] for s in _TERRAIN], dtype=np.float64)
 _STOPS_B = np.array([s[1][2] for s in _TERRAIN], dtype=np.float64)
 
-_AGENT_COLOUR: tuple[int, int, int] = (220, 50, 50)
 _BEST_COLOUR: tuple[int, int, int] = (255, 220, 0)
 _TRUE_MIN_COLOUR: tuple[int, int, int] = (255, 255, 255)
+
+# Agent colour gradient: bright (low score) → dim (high score)
+_AGENT_BRIGHT: tuple[int, int, int] = (255, 240, 80)
+_AGENT_DIM: tuple[int, int, int] = (80, 10, 10)
 
 
 def _find_global_minima(
@@ -76,6 +79,21 @@ def _draw_diamond(
     draw.polygon(pts, fill=_TRUE_MIN_COLOUR, outline=(0, 0, 0))
 
 
+def _score_to_colour(
+    score: float,
+    score_lo: float,
+    score_hi: float,
+) -> tuple[int, int, int]:
+    """Interpolate between bright (low score) and dim (high score)."""
+    span = score_hi - score_lo if score_hi != score_lo else 1.0
+    t = float(np.clip((score - score_lo) / span, 0.0, 1.0))
+    return (
+        int(_AGENT_BRIGHT[0] + t * (_AGENT_DIM[0] - _AGENT_BRIGHT[0])),
+        int(_AGENT_BRIGHT[1] + t * (_AGENT_DIM[1] - _AGENT_BRIGHT[1])),
+        int(_AGENT_BRIGHT[2] + t * (_AGENT_DIM[2] - _AGENT_BRIGHT[2])),
+    )
+
+
 def _grid_to_image(grid: NDArray[np.float64]) -> Image.Image:
     """Convert a 2-D height grid to an RGB PIL Image."""
     g_min = float(grid.min())
@@ -96,14 +114,23 @@ def _render_frame(
     positions: list[Position],
     best: Position,
     agent_radius: int,
+    scores: list[float],
+    score_lo: float,
+    score_hi: float,
 ) -> Image.Image:
     """Draw agents and global best onto a copy of *bg*."""
     frame = bg.copy()
     draw = ImageDraw.Draw(frame)
-    for pos in positions:
+    for pos, score in zip(positions, scores):
         x, y = int(round(pos[0])), int(round(pos[1]))
+        colour = _score_to_colour(score, score_lo, score_hi)
         r = agent_radius
-        draw.ellipse([x - r, y - r, x + r, y + r], fill=_AGENT_COLOUR)
+        draw.ellipse(
+            [x - r, y - r, x + r, y + r],
+            fill=colour,
+            outline=(0, 0, 0),
+            width=1,
+        )
     bx, by = int(round(best[0])), int(round(best[1]))
     r = agent_radius + 2
     draw.ellipse(
@@ -153,6 +180,9 @@ def build_gif(
         else max(2, round(min(grid.shape) / 35))
     )
 
+    score_lo = float(grid.min())
+    score_hi = float(grid.max())
+
     bg = _grid_to_image(grid)
     marker_r = max(4, agent_radius + 2)
     bg_draw = ImageDraw.Draw(bg)
@@ -166,6 +196,9 @@ def build_gif(
             swarm.get_positions(),
             swarm.get_best_position(),
             agent_radius,
+            swarm.get_scores(),
+            score_lo,
+            score_hi,
         )
     ]
 
@@ -187,6 +220,9 @@ def build_gif(
                         swarm.get_positions(),
                         swarm.get_best_position(),
                         agent_radius,
+                        swarm.get_scores(),
+                        score_lo,
+                        score_hi,
                     )
                 )
 

@@ -134,6 +134,9 @@ class PSOSwarm(Swarm):
     def get_positions(self) -> list[Position]:
         return [a.position for a in self._agents]
 
+    def get_scores(self) -> list[float]:
+        return [a.score for a in self._agents]
+
     def get_best_position(self) -> Position:
         g = self._shared_memory[_G_KEY]
         return (float(g[0]), float(g[1]))

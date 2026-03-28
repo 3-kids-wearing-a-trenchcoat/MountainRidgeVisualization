@@ -21,6 +21,11 @@ class JobConfig:
     fps: int
     dot_size: int | None
     inertia: float | None
+    variant: str | None
+    gamma: float | None
+    beta0: float | None
+    alpha: float | None
+    levy_exp: float | None
     output_prefix: str
     output_dir: Path
 
@@ -142,6 +147,63 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
+        "--variant",
+        nargs="+",
+        default=None,
+        choices=["brownian", "levy"],
+        metavar="VARIANT",
+        help=(
+            "FA random walk distribution: brownian or levy "
+            "(default: brownian). Error if used with a non-FA algorithm."
+        ),
+    )
+    parser.add_argument(
+        "--gamma",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="G",
+        help=(
+            "FA light absorption coefficient (default: 1.0). "
+            "Error if used with a non-FA algorithm."
+        ),
+    )
+    parser.add_argument(
+        "--beta0",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="B",
+        help=(
+            "FA maximum attractiveness at distance zero (default: 1.0). "
+            "Error if used with a non-FA algorithm."
+        ),
+    )
+    parser.add_argument(
+        "--alpha",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="A",
+        help=(
+            "FA random walk step size (default: 0.25). "
+            "Error if used with a non-FA algorithm."
+        ),
+    )
+    parser.add_argument(
+        "--levy-exp",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="L",
+        dest="levy_exp",
+        help=(
+            "FA Lévy exponent in [1, 2] (default: 1.5). "
+            "Only used when --variant levy. "
+            "Error if used with a non-FA algorithm."
+        ),
+    )
+    parser.add_argument(
         "--output-prefix", "-o",
         default="out",
         metavar="PREFIX",
@@ -168,6 +230,23 @@ def parse_jobs() -> list[JobConfig]:
                 f"(got: {bad})"
             )
 
+    fa_flags_given = [
+        name for name, val in [
+            ("--variant", args.variant),
+            ("--gamma",   args.gamma),
+            ("--beta0",   args.beta0),
+            ("--alpha",   args.alpha),
+            ("--levy-exp", args.levy_exp),
+        ] if val is not None
+    ]
+    if fa_flags_given:
+        bad = [a for a in args.algorithm if a != "fa"]
+        if bad:
+            parser.error(
+                f"{', '.join(fa_flags_given)} only supported with "
+                f"--algorithm fa (got: {bad})"
+            )
+
     seeds: list[int | None] = (
         [None] if args.seed is None else args.seed
     )
@@ -176,6 +255,21 @@ def parse_jobs() -> list[JobConfig]:
     )
     inertias: list[float | None] = (
         [None] if args.inertia is None else args.inertia
+    )
+    variants: list[str | None] = (
+        [None] if args.variant is None else args.variant
+    )
+    gammas: list[float | None] = (
+        [None] if args.gamma is None else args.gamma
+    )
+    beta0s: list[float | None] = (
+        [None] if args.beta0 is None else args.beta0
+    )
+    alphas: list[float | None] = (
+        [None] if args.alpha is None else args.alpha
+    )
+    levy_exps: list[float | None] = (
+        [None] if args.levy_exp is None else args.levy_exp
     )
 
     jobs: list[JobConfig] = []
@@ -190,8 +284,17 @@ def parse_jobs() -> list[JobConfig]:
         args.fps,
         dot_sizes,
         inertias,
+        variants,
+        gammas,
+        beta0s,
+        alphas,
+        levy_exps,
     ):
-        dims, seed, algo, space, n_agents, iters, ipf, fps, dot, w = combo
+        (
+            dims, seed, algo, space, n_agents,
+            iters, ipf, fps, dot, w,
+            variant, gamma, beta0, alpha, levy_exp,
+        ) = combo
         resolved_seed: int = (
             random.randint(0, 2**31 - 1) if seed is None else seed
         )
@@ -206,6 +309,11 @@ def parse_jobs() -> list[JobConfig]:
             fps=fps,
             dot_size=dot,
             inertia=w,
+            variant=variant,
+            gamma=gamma,
+            beta0=beta0,
+            alpha=alpha,
+            levy_exp=levy_exp,
             output_prefix=args.output_prefix,
             output_dir=output_dir,
         ))

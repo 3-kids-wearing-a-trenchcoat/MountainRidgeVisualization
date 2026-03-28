@@ -38,6 +38,10 @@ class Swarm(ABC):
         """Return the current positions of all agents."""
 
     @abstractmethod
+    def get_scores(self) -> list[float]:
+        """Return the current objective score of every agent."""
+
+    @abstractmethod
     def get_best_position(self) -> Position:
         """Return the position with the lowest objective score."""
 

@@ -8,10 +8,12 @@ from mountain_ridge.cli import JobConfig, parse_jobs
 from mountain_ridge.gif_builder import build_gif
 from mountain_ridge.search_space.functions import get_space
 from mountain_ridge.swarm.base import Swarm
+from mountain_ridge.swarm.algorithms.fa import FASwarm
 from mountain_ridge.swarm.algorithms.pso import PSOSwarm
 
 
 _ALGORITHMS: dict[str, type[Swarm]] = {
+    "fa": FASwarm,
     "pso": PSOSwarm,
 }
 
@@ -49,6 +51,17 @@ def _run_job(
     )
     if job.algorithm == "pso" and job.inertia is not None:
         kwargs["w"] = job.inertia
+    if job.algorithm == "fa":
+        if job.beta0 is not None:
+            kwargs["beta0"] = job.beta0
+        if job.gamma is not None:
+            kwargs["gamma"] = job.gamma
+        if job.alpha is not None:
+            kwargs["alpha"] = job.alpha
+        if job.variant is not None:
+            kwargs["variant"] = job.variant
+        if job.levy_exp is not None:
+            kwargs["levy_exp"] = job.levy_exp
     swarm = swarm_cls(**kwargs)  # type: ignore[call-arg]
 
     build_gif(
