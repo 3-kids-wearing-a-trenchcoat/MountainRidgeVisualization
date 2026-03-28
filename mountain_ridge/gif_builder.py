@@ -276,11 +276,23 @@ def build_gif(
             if i % iterations_per_frame == 0:
                 frames.append(_frame(i))
 
+    # Quantize every frame to one shared palette derived from frame 0,
+    # which contains the full static terrain and is therefore
+    # representative of all colours that appear in the animation.
+    # A consistent palette across frames allows gifsicle to use a single
+    # global colour table and makes delta-frame encoding effective.
+    # Dithering is disabled: the noise it introduces hurts LZW compression.
+    palette_img = frames[0].quantize(colors=256)
+    quantized: list[Image.Image] = [
+        f.quantize(palette=palette_img, dither=Image.Dither.NONE)
+        for f in frames
+    ]
+
     duration_ms = max(1, round(1000 / fps))
-    frames[0].save(
+    quantized[0].save(
         str(output_path),
         save_all=True,
-        append_images=frames[1:],
+        append_images=quantized[1:],
         loop=0,
         duration=duration_ms,
         optimize=True,
