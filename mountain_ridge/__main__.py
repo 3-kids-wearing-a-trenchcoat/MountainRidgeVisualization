@@ -6,7 +6,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from mountain_ridge.cli import JobConfig, parse_jobs
-from mountain_ridge.gif_builder import build_gif
+from mountain_ridge.gif_builder import build_frames, build_gif
 from mountain_ridge.search_space.functions import get_space
 from mountain_ridge.swarm.base import Swarm
 from mountain_ridge.swarm.algorithms.fa import FASwarm
@@ -29,13 +29,26 @@ def _next_output_path(output_dir: Path, prefix: str) -> Path:
         n += 1
 
 
+def _next_frames_dir(output_dir: Path, prefix: str) -> Path:
+    """Return the next available *prefix_NN/* subdirectory in *output_dir*."""
+    n = 0
+    while True:
+        path = output_dir / f"{prefix}_{n:02d}"
+        if not path.exists():
+            return path
+        n += 1
+
+
 def _run_job(
     job: JobConfig,
     output_path: Path,
     use_gifsicle: bool,
     progress_position: int = 0,
-) -> None:
-    """Instantiate space and swarm, run simulation, write GIF."""
+) -> int | None:
+    """Instantiate space and swarm, run simulation, write output.
+
+    Returns the number of frames written when in frames mode, else None.
+    """
     space_fn, grid = get_space(job.space, job.seed, job.dimensions)
 
     swarm_cls = _ALGORITHMS.get(job.algorithm)
@@ -66,6 +79,22 @@ def _run_job(
             kwargs["levy_exp"] = job.levy_exp
     swarm = swarm_cls(**kwargs)  # type: ignore[call-arg]
 
+    if job.frames:
+        output_path.mkdir(parents=True, exist_ok=True)
+        return build_frames(
+            swarm=swarm,
+            grid=grid,
+            n_iterations=job.iterations,
+            iterations_per_frame=job.iterations_per_frame,
+            output_dir=output_path,
+            dot_size=job.dot_size,
+            colour_by_score=(job.algorithm == "fa"),
+            detailed=job.detailed,
+            use_png=job.frames_png,
+            desc=output_path.name,
+            progress_position=progress_position,
+        )
+
     build_gif(
         swarm=swarm,
         grid=grid,
@@ -80,6 +109,7 @@ def _run_job(
         desc=output_path.name,
         progress_position=progress_position,
     )
+    return None
 
 
 def main() -> None:
@@ -107,17 +137,28 @@ def main() -> None:
     )
     with outer:
         for job in outer:
-            output_path = _next_output_path(
-                job.output_dir, job.output_prefix
-            )
-            tqdm.write(f"Generating {output_path} ...")
-            _run_job(
+            if job.frames:
+                output_path = _next_frames_dir(
+                    job.output_dir, job.output_prefix
+                )
+                tqdm.write(f"Generating frames in {output_path}/ ...")
+            else:
+                output_path = _next_output_path(
+                    job.output_dir, job.output_prefix
+                )
+                tqdm.write(f"Generating {output_path} ...")
+            n_frames = _run_job(
                 job,
                 output_path,
                 use_gifsicle=use_gifsicle,
                 progress_position=1 if batch else 0,
             )
-            tqdm.write(f"  -> saved {output_path}")
+            if job.frames:
+                tqdm.write(
+                    f"  -> saved {n_frames} frames to {output_path}/"
+                )
+            else:
+                tqdm.write(f"  -> saved {output_path}")
 
 
 if __name__ == "__main__":

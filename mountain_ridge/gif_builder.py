@@ -172,59 +172,22 @@ def _render_frame(
     return frame
 
 
-def build_gif(
+def _simulate_frames(
     swarm: Swarm,
     grid: NDArray[np.float64],
+    bg: Image.Image,
     n_iterations: int,
     iterations_per_frame: int,
-    fps: int,
-    output_path: str | Path,
-    dot_size: int | None = None,
-    colour_by_score: bool = False,
-    detailed: bool = False,
-    use_gifsicle: bool = True,
-    desc: str = "Simulating",
-    progress_position: int = 0,
-) -> None:
-    """Run *swarm* for *n_iterations* and write an animated GIF.
-
-    Parameters
-    ----------
-    swarm:
-        An already-initialised ``Swarm``.  Its initial state becomes
-        frame 0.
-    grid:
-        Precomputed height-map array with shape ``(height, width)``.
-    n_iterations:
-        Total simulation steps to run.
-    iterations_per_frame:
-        Capture one frame every this many iterations (plus frame 0).
-    fps:
-        Playback speed of the output GIF.
-    output_path:
-        Destination ``.gif`` file.  Created or overwritten.
-    dot_size:
-        Radius of agent dots in pixels.  ``None`` (default) scales
-        automatically: ``max(2, round(min(height, width) / 35))``.
-    """
-    agent_radius: int = (
-        dot_size
-        if dot_size is not None
-        else max(2, round(min(grid.shape) / 35))
-    )
-
-    score_lo = float(grid.min())
-    score_hi = float(grid.max())
-
-    bg = _grid_to_image(grid)
-    marker_r = max(4, agent_radius + 2)
-    bg_draw = ImageDraw.Draw(bg)
-    for mx, my in _find_global_minima(grid):
-        _draw_diamond(bg_draw, mx, my, marker_r)
-    del bg_draw
-
-    global_min = score_lo  # grid.min() already stored in score_lo
-
+    colour_by_score: bool,
+    detailed: bool,
+    score_lo: float,
+    score_hi: float,
+    agent_radius: int,
+    global_min: float,
+    desc: str,
+    progress_position: int,
+) -> list[Image.Image]:
+    """Run *swarm* and return every captured frame as a PIL Image."""
     def _lookup_best_score() -> float:
         bx, by = swarm.get_best_position()
         return float(grid[int(round(by)), int(round(bx))])
@@ -276,6 +239,85 @@ def build_gif(
             if i % iterations_per_frame == 0:
                 frames.append(_frame(i))
 
+    return frames
+
+
+
+def _make_bg(
+    grid: NDArray[np.float64],
+    agent_radius: int,
+) -> Image.Image:
+    """Build the static terrain background with global-minima markers."""
+    bg = _grid_to_image(grid)
+    marker_r = max(4, agent_radius + 2)
+    bg_draw = ImageDraw.Draw(bg)
+    for mx, my in _find_global_minima(grid):
+        _draw_diamond(bg_draw, mx, my, marker_r)
+    del bg_draw
+    return bg
+
+
+def build_gif(
+    swarm: Swarm,
+    grid: NDArray[np.float64],
+    n_iterations: int,
+    iterations_per_frame: int,
+    fps: int,
+    output_path: str | Path,
+    dot_size: int | None = None,
+    colour_by_score: bool = False,
+    detailed: bool = False,
+    use_gifsicle: bool = True,
+    desc: str = "Simulating",
+    progress_position: int = 0,
+) -> None:
+    """Run *swarm* for *n_iterations* and write an animated GIF.
+
+    Parameters
+    ----------
+    swarm:
+        An already-initialised ``Swarm``.  Its initial state becomes
+        frame 0.
+    grid:
+        Precomputed height-map array with shape ``(height, width)``.
+    n_iterations:
+        Total simulation steps to run.
+    iterations_per_frame:
+        Capture one frame every this many iterations (plus frame 0).
+    fps:
+        Playback speed of the output GIF.
+    output_path:
+        Destination ``.gif`` file.  Created or overwritten.
+    dot_size:
+        Radius of agent dots in pixels.  ``None`` (default) scales
+        automatically: ``max(2, round(min(height, width) / 35))``.
+    """
+    agent_radius: int = (
+        dot_size
+        if dot_size is not None
+        else max(2, round(min(grid.shape) / 35))
+    )
+
+    score_lo = float(grid.min())
+    score_hi = float(grid.max())
+    bg = _make_bg(grid, agent_radius)
+
+    frames = _simulate_frames(
+        swarm=swarm,
+        grid=grid,
+        bg=bg,
+        n_iterations=n_iterations,
+        iterations_per_frame=iterations_per_frame,
+        colour_by_score=colour_by_score,
+        detailed=detailed,
+        score_lo=score_lo,
+        score_hi=score_hi,
+        agent_radius=agent_radius,
+        global_min=score_lo,
+        desc=desc,
+        progress_position=progress_position,
+    )
+
     # Quantize every frame to one shared palette derived from frame 0,
     # which contains the full static terrain and is therefore
     # representative of all colours that appear in the animation.
@@ -303,3 +345,74 @@ def build_gif(
             ["gifsicle", "--batch", "-O3", str(output_path)],
             check=True,
         )
+
+
+def build_frames(
+    swarm: Swarm,
+    grid: NDArray[np.float64],
+    n_iterations: int,
+    iterations_per_frame: int,
+    output_dir: Path,
+    dot_size: int | None = None,
+    colour_by_score: bool = False,
+    detailed: bool = False,
+    use_png: bool = False,
+    desc: str = "Simulating",
+    progress_position: int = 0,
+) -> int:
+    """Run *swarm* and write each captured frame as an individual image.
+
+    Frames are saved as JPEG (quality 85) by default, which is consistently
+    4× smaller than PNG for this type of content across all built-in search
+    spaces.  Pass ``use_png=True`` to write lossless PNG files instead.
+
+    Parameters
+    ----------
+    output_dir:
+        Directory that will receive ``frame_0000.jpeg`` (or ``.png``)
+        files.  Must already exist.
+    use_png:
+        Write PNG instead of JPEG.
+
+    Returns
+    -------
+    int
+        Number of frames written.
+    """
+    agent_radius: int = (
+        dot_size
+        if dot_size is not None
+        else max(2, round(min(grid.shape) / 35))
+    )
+
+    score_lo = float(grid.min())
+    score_hi = float(grid.max())
+    bg = _make_bg(grid, agent_radius)
+
+    frames = _simulate_frames(
+        swarm=swarm,
+        grid=grid,
+        bg=bg,
+        n_iterations=n_iterations,
+        iterations_per_frame=iterations_per_frame,
+        colour_by_score=colour_by_score,
+        detailed=detailed,
+        score_lo=score_lo,
+        score_hi=score_hi,
+        agent_radius=agent_radius,
+        global_min=score_lo,
+        desc=desc,
+        progress_position=progress_position,
+    )
+
+    if use_png:
+        ext, save_kwargs = "png", {}
+    else:
+        ext, save_kwargs = "jpeg", {"quality": 85}
+    for idx, frame in enumerate(frames):
+        frame.save(
+            output_dir / f"frame_{idx:04d}.{ext}",
+            format=ext.upper(),
+            **save_kwargs,
+        )
+    return len(frames)

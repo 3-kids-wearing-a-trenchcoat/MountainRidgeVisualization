@@ -27,6 +27,8 @@ class JobConfig:
     alpha: float | None
     levy_exp: float | None
     detailed: bool
+    frames: bool
+    frames_png: bool
     use_gifsicle: bool
     output_prefix: str
     output_dir: Path
@@ -224,6 +226,24 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
+        "--frames",
+        action="store_true",
+        default=False,
+        help=(
+            "Write each frame as a separate image instead of an animated "
+            "GIF. Default format is JPEG (quality 85); use --png to "
+            "produce lossless PNG files instead."
+        ),
+    )
+    parser.add_argument(
+        "--png",
+        action="store_true",
+        default=False,
+        help=(
+            "When used with --frames, write frames as PNG instead of JPEG."
+        ),
+    )
+    parser.add_argument(
         "--output-prefix", "-o",
         default="out",
         metavar="PREFIX",
@@ -241,6 +261,9 @@ def parse_jobs() -> list[JobConfig]:
     args = parser.parse_args()
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.png and not args.frames:
+        parser.error("--png requires --frames")
 
     if args.inertia is not None:
         bad = [a for a in args.algorithm if a != "pso"]
@@ -335,6 +358,8 @@ def parse_jobs() -> list[JobConfig]:
             alpha=alpha,
             levy_exp=levy_exp,
             detailed=args.detailed,
+            frames=args.frames,
+            frames_png=args.png,
             use_gifsicle=not args.no_gifsicle,
             output_prefix=args.output_prefix,
             output_dir=output_dir,

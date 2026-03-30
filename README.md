@@ -1,13 +1,18 @@
 # MountainRidgeVisualization
 
 A CLI tool that visualizes swarm intelligence optimization algorithms as
-animated GIFs. Agents move across a procedurally generated height map,
-searching for the lowest point (valley) according to the chosen algorithm.
+animated GIFs or image series. Agents move across a procedurally generated
+height map, searching for the lowest point (valley) according to the chosen
+algorithm.
 
 ## Output format
 
-Each GIF shows the swarm searching the height map over time. One frame is
-captured at the start and then every `--iterations-per-frame` steps.
+By default, the program writes an animated GIF. Pass `--frames` to instead
+write each captured frame as a separate image file (see
+[Frames mode](#frames-mode)).
+
+One frame is captured at the start and then every `--iterations-per-frame`
+steps.
 
 ### Height map
 
@@ -74,8 +79,10 @@ with all defaults:
 python -m mountain_ridge
 ```
 
-Output files are named `<prefix>_NN.gif` (e.g. `out_00.gif`) and the counter
-increments automatically to avoid overwriting existing files.
+In GIF mode, output files are named `<prefix>_NN.gif` (e.g. `out_00.gif`).
+In frames mode, a subdirectory `<prefix>_NN/` is created and frames are
+written into it as `frame_0000.jpeg`, `frame_0001.jpeg`, etc.
+The counter `NN` increments automatically to avoid overwriting existing files.
 
 ### Flags
 
@@ -97,9 +104,11 @@ increments automatically to avoid overwriting existing files.
 | `--levy-exp`             |       | `float`  | `1.5`      | **FA only.** Lévy exponent `λ` — controls tail weight of the Lévy distribution. Only used when `--variant levy`. Typical range `[1.0, 2.0]`. Error if used with a non-FA algorithm.                             |
 | `--dot-size`             |       | `int`    | *(auto)*   | Agent dot radius in pixels. Omit to scale automatically: `max(2, round(min(W, H) / 35))`                                                                                                                        |
 | `--detailed`             |       | flag     | off        | Append a statistics bar (150 px wide) to the right of every frame. See [Detailed output](#detailed-output).                                                                                                     |
+| `--frames`               |       | flag     | off        | Write each frame as a separate image file instead of an animated GIF. See [Frames mode](#frames-mode).                                                                                                          |
+| `--png`                  |       | flag     | off        | **Requires `--frames`.** Write frames as lossless PNG instead of JPEG. Error if used without `--frames`.                                                                                                        |
 | `--no-gifsicle`          |       | flag     | off        | Disable `gifsicle` post-processing and suppress the "not found" warning.                                                                                                                                        |
-| `--output-prefix`        | `-o`  | `string` | `out`      | Prefix for output filenames (`<prefix>_NN.gif`)                                                                                                                                                                 |
-| `--output-dir`           |       | `path`   | `.`        | Directory to write output GIFs into (created if absent)                                                                                                                                                         |
+| `--output-prefix`        | `-o`  | `string` | `out`      | Prefix for output filenames (`<prefix>_NN.gif` or `<prefix>_NN/`)                                                                                                                                              |
+| `--output-dir`           |       | `path`   | `.`        | Directory to write output into (created if absent)                                                                                                                                                              |
 
 ### Available search spaces
 
@@ -125,6 +134,38 @@ right edge of every frame. The bar shows:
 | **Global min** | True minimum height of the search space |
 
 The output GIF dimensions become `(W + 150) × H`.
+
+### Frames mode
+
+Pass `--frames` to write each captured frame as an individual image file
+instead of assembling them into a GIF.
+
+**Output layout:**
+
+```
+<output-dir>/
+  <prefix>_00/
+    frame_0000.jpeg
+    frame_0001.jpeg
+    ...
+```
+
+**Format:** JPEG at quality 85 by default. Across all built-in search spaces
+and dimensions, JPEG is consistently ~4× smaller than PNG for this type of
+content (smooth terrain gradients with small solid-colour agent markers).
+Pass `--png` to write lossless PNG files instead. `--png` requires `--frames`
+and will produce an error if used alone.
+
+`--fps` and `--no-gifsicle` have no effect in frames mode.
+
+**Example:**
+```bash
+# Write frames as JPEG (default)
+python -m mountain_ridge --frames --seed 42 --iterations 100
+
+# Write frames as PNG
+python -m mountain_ridge --frames --png --seed 42 --iterations 100
+```
 
 ### Batch mode
 
