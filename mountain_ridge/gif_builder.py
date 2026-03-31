@@ -39,9 +39,10 @@ _AGENT_COLOUR: tuple[int, int, int] = (255, 0, 0)      # red
 
 # Attraction arrow colours by kind
 _ATTRACTION_COLOURS: dict[str, tuple[int, int, int]] = {
-    "pbest":   (0,   200, 255),   # cyan
-    "gbest":   (220,   0, 220),   # magenta
-    "firefly": (255, 140,   0),   # orange
+    "pbest":    (0,   200, 255),   # cyan
+    "gbest":    (220,   0, 220),   # magenta
+    "firefly":  (255, 140,   0),   # orange
+    "gradient": (0,   220,  80),   # green
 }
 _ARROW_MAX_LEN_FACTOR: int = 6    # max arrow length = factor × agent_radius
 _ARROW_HEAD_FACTOR: float = 0.3   # arrowhead size = factor × arrow length

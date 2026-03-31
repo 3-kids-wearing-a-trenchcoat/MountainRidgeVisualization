@@ -26,6 +26,8 @@ class JobConfig:
     beta0: float | None
     alpha: float | None
     levy_exp: float | None
+    sd_step: float | None
+    sd_alpha: float | None
     detailed: bool
     show_attractions: bool
     frames: bool
@@ -209,6 +211,32 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
+        "--sd-step",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="S",
+        dest="sd_step",
+        help=(
+            "SD initial step length for backtracking line search "
+            "(default: 0.1 · min(W, H)). "
+            "Error if used with a non-SD algorithm."
+        ),
+    )
+    parser.add_argument(
+        "--sd-alpha",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="A",
+        dest="sd_alpha",
+        help=(
+            "SD random perturbation amplitude added every iteration "
+            "(default: 0.0 — pure steepest descent). "
+            "Error if used with a non-SD algorithm."
+        ),
+    )
+    parser.add_argument(
         "--no-gifsicle",
         action="store_true",
         default=False,
@@ -302,6 +330,20 @@ def parse_jobs() -> list[JobConfig]:
                 f"--algorithm fa (got: {bad})"
             )
 
+    sd_flags_given = [
+        name for name, val in [
+            ("--sd-step",  args.sd_step),
+            ("--sd-alpha", args.sd_alpha),
+        ] if val is not None
+    ]
+    if sd_flags_given:
+        bad = [a for a in args.algorithm if a != "sd"]
+        if bad:
+            parser.error(
+                f"{', '.join(sd_flags_given)} only supported with "
+                f"--algorithm sd (got: {bad})"
+            )
+
     seeds: list[int | None] = (
         [None] if args.seed is None else args.seed
     )
@@ -326,6 +368,12 @@ def parse_jobs() -> list[JobConfig]:
     levy_exps: list[float | None] = (
         [None] if args.levy_exp is None else args.levy_exp
     )
+    sd_steps: list[float | None] = (
+        [None] if args.sd_step is None else args.sd_step
+    )
+    sd_alphas: list[float | None] = (
+        [None] if args.sd_alpha is None else args.sd_alpha
+    )
 
     jobs: list[JobConfig] = []
     for combo in itertools.product(
@@ -344,11 +392,14 @@ def parse_jobs() -> list[JobConfig]:
         beta0s,
         alphas,
         levy_exps,
+        sd_steps,
+        sd_alphas,
     ):
         (
             dims, seed, algo, space, n_agents,
             iters, ipf, fps, dot, w,
             variant, gamma, beta0, alpha, levy_exp,
+            sd_step, sd_alpha,
         ) = combo
         resolved_seed: int = (
             random.randint(0, 2**31 - 1) if seed is None else seed
@@ -369,6 +420,8 @@ def parse_jobs() -> list[JobConfig]:
             beta0=beta0,
             alpha=alpha,
             levy_exp=levy_exp,
+            sd_step=sd_step,
+            sd_alpha=sd_alpha,
             detailed=args.detailed,
             show_attractions=args.show_attractions,
             frames=args.frames,

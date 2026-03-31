@@ -44,6 +44,8 @@ height, running from low to high:
 - **Yellow** `(255, 255, 0)` — brightest firefly (lowest height, best position)
 - **Red** `(255, 0, 0)` — dimmest firefly (highest height, worst position)
 
+**SD (Steepest Descent)** — same score-based colour gradient as FA. Because agents are fully independent, colour shows at a glance which agents have converged to good local minima (yellow) versus which are still high up or stuck on a plateau (red).
+
 The goal of each algorithm is to drive the yellow circle onto the white diamond.
 
 ### Attraction arrows
@@ -61,6 +63,10 @@ agent dots so agents always appear on top.
   factor. Arrows shorten sharply with distance (controlled by `--gamma`).
   Attractors whose influence falls below 1% (`β / β₀ < 0.01`) are omitted to
   reduce clutter.
+- **SD** — length encodes the local gradient magnitude normalised by the
+  steepest gradient found across all agents in the current frame. The agent
+  on the steepest slope always gets a full-length arrow; all others are shown
+  relative to it. Agents at (or near) a local minimum show no arrow.
 
 **Arrow colour** encodes the kind of influence:
 
@@ -69,6 +75,7 @@ agent dots so agents always appear on top.
 | Cyan `(0, 200, 255)` | PSO — cognitive pull toward the agent's personal best (pbest) |
 | Magenta `(220, 0, 220)` | PSO — social pull toward the global best (gbest) |
 | Orange `(255, 140, 0)` | FA — attraction toward a brighter (lower-scoring) firefly |
+| Green `(0, 220, 80)` | SD — direction of steepest descent (negative gradient) |
 
 Frame 0 (the initial state before any update) shows no arrows; arrows first
 appear on the next captured frame.
@@ -118,7 +125,7 @@ The counter `NN` increments automatically to avoid overwriting existing files.
 |--------------------------|-------|----------|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `--dimensions`           | `-d`  | `WxH`    | `100x100`  | Width and height of the search space grid                                                                                                                                                                       |
 | `--seed`                 | `-s`  | `int`    | *(random)* | Random seed for the search space and agents. Omit for a fresh random seed per job                                                                                                                               |
-| `--algorithm`            | `-a`  | `string` | `pso`      | Optimization algorithm to use. Available: `pso`, `fa`  (Particle Swarm Optimization and Firefly Algorithm respectively)                                                                                         |
+| `--algorithm`            | `-a`  | `string` | `pso`      | Optimization algorithm to use. Available: `pso`, `fa`, `sd` (Particle Swarm Optimization, Firefly Algorithm, and Steepest Descent respectively)                                                                 |
 | `--space`                |       | `string` | `ridge`    | Search space function. Available: `ridge`, `gaussian`, `rastrigin`, `ackley`, `multiwell`, `deceptive`                                                                                                          |
 | `--n-agents`             | `-n`  | `int`    | `20`       | Number of agents in the swarm                                                                                                                                                                                   |
 | `--iterations`           | `-i`  | `int`    | `100`      | Total number of simulation steps                                                                                                                                                                                |
@@ -130,6 +137,8 @@ The counter `NN` increments automatically to avoid overwriting existing files.
 | `--beta0`                |       | `float`  | `1.0`      | **FA only.** Maximum attractiveness `β₀` at distance zero. Error if used with a non-FA algorithm.                                                                                                               |
 | `--alpha`                |       | `float`  | *(auto)*   | **FA only.** Random walk step size `α`. Default scales with the grid: `0.05 · min(W, H)`. Error if used with a non-FA algorithm.                                                                                |
 | `--levy-exp`             |       | `float`  | `1.5`      | **FA only.** Lévy exponent `λ` — controls tail weight of the Lévy distribution. Only used when `--variant levy`. Typical range `[1.0, 2.0]`. Error if used with a non-FA algorithm.                             |
+| `--sd-step`              |       | `float`  | *(auto)*   | **SD only.** Initial step length for backtracking line search. Default scales with the grid: `0.1 · min(W, H)`. Error if used with a non-SD algorithm.                                                          |
+| `--sd-alpha`             |       | `float`  | `0.0`      | **SD only.** Random perturbation amplitude `α` added unconditionally every iteration. `0.0` gives strictly deterministic steepest descent. Error if used with a non-SD algorithm.                               |
 | `--dot-size`             |       | `int`    | *(auto)*   | Agent dot radius in pixels. Omit to scale automatically: `max(2, round(min(W, H) / 35))`                                                                                                                        |
 | `--show-attractions`     |       | flag     | off        | Draw arrows from each agent toward its attraction points. Arrow length encodes influence strength; colour encodes kind. See [Attraction arrows](#attraction-arrows).                                              |
 | `--detailed`             |       | flag     | off        | Append a statistics bar (150 px wide) to the right of every frame. See [Detailed output](#detailed-output).                                                                                                     |
@@ -149,6 +158,32 @@ The counter `NN` increments automatically to avoid overwriting existing files.
 | `ackley` | A near-flat surface covered by a dense cosine carpet with a single sharp global minimum. Difficult because the flat carpet gives little gradient information. |
 | `multiwell` | Several identical Gaussian wells arranged in a ring, all equally deep. Designed to expose an algorithm's tendency to commit to one well and ignore equally-good alternatives. |
 | `deceptive` | A wide, shallow basin near the centre (easy to find but not the true minimum) with one or two narrow, deeper pits in the periphery (the true global minimum). Designed to trap algorithms that converge early. |
+
+### Steepest Descent (SD)
+
+SD is a classical single-agent local search heuristic included as a baseline
+for comparison with swarm algorithms. Each agent independently follows the
+direction of steepest descent — the negative gradient of the height map —
+until it reaches a local minimum, where it stalls.
+
+**Gradient estimation** — because the height map is accessible only through
+point queries, the gradient is estimated by central finite differences with a
+fixed perturbation of 1 grid unit.
+
+**Step size** — each iteration uses backtracking line search: the agent
+attempts a step of size `--sd-step` in the descent direction and halves it
+repeatedly (by factor 0.5) until either a strict height decrease is achieved
+or the step falls below a minimum threshold (`1e-4`), at which point the
+move is cancelled and the agent stays put (local minimum).
+
+**Random perturbation** — `--sd-alpha` adds an unconditional random
+displacement `α · U(−0.5, 0.5)²` every iteration, regardless of whether the
+agent is at a local minimum. When `α = 0` (the default) the algorithm is
+strictly deterministic. Increasing `α` gives agents a chance to escape
+shallow minima, trading accuracy for exploration.
+
+**No communication** — agents share no memory. The yellow best-position
+marker tracks the lowest score found by any individual agent's personal best.
 
 ### Detailed output
 
@@ -236,4 +271,16 @@ python -m mountain_ridge --show-attractions --seed 42 --dimensions 300x300
 
 # Show attraction arrows for FA
 python -m mountain_ridge --algorithm fa --show-attractions --seed 42 --dimensions 300x300
+
+# Steepest descent (pure, no randomness)
+python -m mountain_ridge --algorithm sd --seed 42 --dimensions 200x200
+
+# Steepest descent with random perturbation to escape shallow minima
+python -m mountain_ridge --algorithm sd --sd-alpha 2.0 --seed 42 --dimensions 200x200
+
+# SD with gradient arrows — shows each agent's descent direction and slope intensity
+python -m mountain_ridge --algorithm sd --show-attractions --seed 42 --dimensions 300x300
+
+# Side-by-side comparison: SD vs PSO on the same seed
+python -m mountain_ridge --algorithm sd pso --seed 42 --dimensions 200x200
 ```

@@ -11,11 +11,13 @@ from mountain_ridge.search_space.functions import get_space
 from mountain_ridge.swarm.base import Swarm
 from mountain_ridge.swarm.algorithms.fa import FASwarm
 from mountain_ridge.swarm.algorithms.pso import PSOSwarm
+from mountain_ridge.swarm.algorithms.sd import SDSwarm
 
 
 _ALGORITHMS: dict[str, type[Swarm]] = {
     "fa": FASwarm,
     "pso": PSOSwarm,
+    "sd": SDSwarm,
 }
 
 
@@ -77,6 +79,11 @@ def _run_job(
             kwargs["variant"] = job.variant
         if job.levy_exp is not None:
             kwargs["levy_exp"] = job.levy_exp
+    if job.algorithm == "sd":
+        if job.sd_step is not None:
+            kwargs["step"] = job.sd_step
+        if job.sd_alpha is not None:
+            kwargs["alpha"] = job.sd_alpha
     swarm = swarm_cls(**kwargs)  # type: ignore[call-arg]
 
     if job.frames:
@@ -88,7 +95,7 @@ def _run_job(
             iterations_per_frame=job.iterations_per_frame,
             output_dir=output_path,
             dot_size=job.dot_size,
-            colour_by_score=(job.algorithm == "fa"),
+            colour_by_score=(job.algorithm in ("fa", "sd")),
             detailed=job.detailed,
             use_png=job.frames_png,
             show_attractions=job.show_attractions,
@@ -104,7 +111,7 @@ def _run_job(
         fps=job.fps,
         output_path=output_path,
         dot_size=job.dot_size,
-        colour_by_score=(job.algorithm == "fa"),
+        colour_by_score=(job.algorithm in ("fa", "sd")),
         detailed=job.detailed,
         use_gifsicle=use_gifsicle,
         show_attractions=job.show_attractions,
