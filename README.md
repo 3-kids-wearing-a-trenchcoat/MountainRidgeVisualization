@@ -34,6 +34,7 @@ height, running from low to high:
 | White diamond | True global minimum — every grid cell whose height is exactly equal to the lowest value in the space. Static; does not move. Multiple diamonds appear when the space has more than one equally-deep minimum. |
 | Yellow circle (outlined) | Best position found by the swarm so far. Updates as the swarm improves. |
 | Coloured circles (outlined) | Current positions of all agents. Colour depends on the algorithm — see below. |
+| Arrows (optional) | When `--show-attractions` is enabled, arrows are drawn from each agent toward its attraction points. See [Attraction arrows](#attraction-arrows). |
 
 #### Agent colours by algorithm
 
@@ -44,6 +45,33 @@ height, running from low to high:
 - **Red** `(255, 0, 0)` — dimmest firefly (highest height, worst position)
 
 The goal of each algorithm is to drive the yellow circle onto the white diamond.
+
+### Attraction arrows
+
+Pass `--show-attractions` to draw arrows from each agent toward the positions
+that are currently influencing its movement. Arrows are rendered beneath the
+agent dots so agents always appear on top.
+
+**Arrow length** is proportional to the strength of that influence:
+- **PSO** — length encodes `c · distance / v_max` for each attractor, so the
+  arrow grows with how much of the velocity cap that attractor is contributing.
+  Once the agent is far enough that the raw force would exceed `v_max`, the
+  arrow is capped at full length.
+- **FA** — length encodes `β / β₀ = exp(−γ r²)`, the Gaussian attractiveness
+  factor. Arrows shorten sharply with distance (controlled by `--gamma`).
+  Attractors whose influence falls below 1% (`β / β₀ < 0.01`) are omitted to
+  reduce clutter.
+
+**Arrow colour** encodes the kind of influence:
+
+| Colour | Meaning |
+|--------|---------|
+| Cyan `(0, 200, 255)` | PSO — cognitive pull toward the agent's personal best (pbest) |
+| Magenta `(220, 0, 220)` | PSO — social pull toward the global best (gbest) |
+| Orange `(255, 140, 0)` | FA — attraction toward a brighter (lower-scoring) firefly |
+
+Frame 0 (the initial state before any update) shows no arrows; arrows first
+appear on the next captured frame.
 
 ## Requirements
 
@@ -103,6 +131,7 @@ The counter `NN` increments automatically to avoid overwriting existing files.
 | `--alpha`                |       | `float`  | *(auto)*   | **FA only.** Random walk step size `α`. Default scales with the grid: `0.05 · min(W, H)`. Error if used with a non-FA algorithm.                                                                                |
 | `--levy-exp`             |       | `float`  | `1.5`      | **FA only.** Lévy exponent `λ` — controls tail weight of the Lévy distribution. Only used when `--variant levy`. Typical range `[1.0, 2.0]`. Error if used with a non-FA algorithm.                             |
 | `--dot-size`             |       | `int`    | *(auto)*   | Agent dot radius in pixels. Omit to scale automatically: `max(2, round(min(W, H) / 35))`                                                                                                                        |
+| `--show-attractions`     |       | flag     | off        | Draw arrows from each agent toward its attraction points. Arrow length encodes influence strength; colour encodes kind. See [Attraction arrows](#attraction-arrows).                                              |
 | `--detailed`             |       | flag     | off        | Append a statistics bar (150 px wide) to the right of every frame. See [Detailed output](#detailed-output).                                                                                                     |
 | `--frames`               |       | flag     | off        | Write each frame as a separate image file instead of an animated GIF. See [Frames mode](#frames-mode).                                                                                                          |
 | `--png`                  |       | flag     | off        | **Requires `--frames`.** Write frames as lossless PNG instead of JPEG. Error if used without `--frames`.                                                                                                        |
@@ -201,4 +230,10 @@ python -m mountain_ridge --algorithm pso fa --seed 99 --space multiwell
 
 # Batch: sweep over several seeds, save to a dedicated folder
 python -m mountain_ridge --seed 10 20 30 40 --output-dir results --output-prefix sweep
+
+# Show attraction arrows (PSO: cyan=pbest, magenta=gbest)
+python -m mountain_ridge --show-attractions --seed 42 --dimensions 300x300
+
+# Show attraction arrows for FA
+python -m mountain_ridge --algorithm fa --show-attractions --seed 42 --dimensions 300x300
 ```

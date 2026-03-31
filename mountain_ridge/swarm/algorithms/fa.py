@@ -6,7 +6,9 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from mountain_ridge.swarm.base import Agent, Position, SearchSpace, Swarm
+from mountain_ridge.swarm.base import (
+    Agent, AttractionVector, Position, SearchSpace, Swarm,
+)
 
 _SNAPSHOT_KEY = "snapshot"
 
@@ -38,6 +40,7 @@ class FAAgent(Agent):
         self._variant = variant
         self._levy_exp = levy_exp
         self._rng = rng
+        self._last_attractions: list[tuple[Position, float]] = []
 
         if variant == "levy":
             lam = levy_exp
@@ -84,12 +87,14 @@ class FAAgent(Agent):
         # walk step immediately (once per attractor, not once per
         # iteration).  Position is updated after each step so later
         # attractions use the already-moved location.
+        self._last_attractions = []
         moved = False
         for pos_j, score_j in snapshot:
             if score_j < my_score:
                 diff = np.array(pos_j, dtype=np.float64) - self._pos
                 r_sq = float(np.dot(diff, diff))
                 beta = self._beta0 * math.exp(-self._gamma * r_sq)
+                self._last_attractions.append((pos_j, beta))
                 self._pos += beta * diff
                 if self._variant == "levy":
                     eps = self._levy_step()
@@ -175,3 +180,31 @@ class FASwarm(Swarm):
         self._shared_memory[_SNAPSHOT_KEY] = [
             (a.position, a.score) for a in self._agents
         ]
+
+    def get_attractions(self) -> list[list[AttractionVector]]:
+        # Min-max stretch: map beta from [beta_min, beta0] → [0, 1].
+        # beta_min is the smallest possible beta, reached at the maximum
+        # distance (the grid diagonal).  This fills the full [0, 1] range
+        # instead of compressing everything into a narrow band near 1.0
+        # (which happens because default gamma keeps attraction nearly flat
+        # across the whole grid).
+        result: list[list[AttractionVector]] = []
+        for agent in self._agents:
+            diag_sq = float(np.dot(agent._hi, agent._hi))
+            beta_min = agent._beta0 * math.exp(-agent._gamma * diag_sq)
+            beta_span = agent._beta0 - beta_min
+            vectors: list[AttractionVector] = []
+            for target, beta in agent._last_attractions:
+                if beta_span > 0:
+                    weight = (beta - beta_min) / beta_span
+                else:
+                    weight = 1.0
+                weight = max(0.0, min(1.0, weight))
+                if weight >= 0.01:
+                    vectors.append(AttractionVector(
+                        target=target,
+                        weight=weight,
+                        kind="firefly",
+                    ))
+            result.append(vectors)
+        return result

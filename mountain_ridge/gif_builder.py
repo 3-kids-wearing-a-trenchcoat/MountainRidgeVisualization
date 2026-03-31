@@ -1,5 +1,6 @@
 """Build animated GIFs from swarm simulation runs."""
 
+import math
 import shutil
 import subprocess
 from pathlib import Path
@@ -9,7 +10,7 @@ from numpy.typing import NDArray
 from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 
-from mountain_ridge.swarm.base import Position, Swarm
+from mountain_ridge.swarm.base import AttractionVector, Position, Swarm
 
 
 # Terrain colormap: (normalised_value, (R, G, B))
@@ -35,6 +36,15 @@ _AGENT_DIM: tuple[int, int, int] = (255, 0, 0)         # red
 
 # Fixed agent colour used when score-based colouring is disabled (e.g. PSO)
 _AGENT_COLOUR: tuple[int, int, int] = (255, 0, 0)      # red
+
+# Attraction arrow colours by kind
+_ATTRACTION_COLOURS: dict[str, tuple[int, int, int]] = {
+    "pbest":   (0,   200, 255),   # cyan
+    "gbest":   (220,   0, 220),   # magenta
+    "firefly": (255, 140,   0),   # orange
+}
+_ARROW_MAX_LEN_FACTOR: int = 6    # max arrow length = factor × agent_radius
+_ARROW_HEAD_FACTOR: float = 0.3   # arrowhead size = factor × arrow length
 
 # Info bar (detailed output)
 _INFO_BAR_WIDTH: int = 150
@@ -130,6 +140,47 @@ def _grid_to_image(grid: NDArray[np.float64]) -> Image.Image:
     return Image.fromarray(rgb, mode="RGB")
 
 
+def _draw_arrow(
+    draw: ImageDraw.ImageDraw,
+    ax: float,
+    ay: float,
+    tx: float,
+    ty: float,
+    weight: float,
+    colour: tuple[int, int, int],
+    max_len: int,
+) -> None:
+    """Draw a weighted arrow from (ax, ay) toward (tx, ty).
+
+    The arrow length equals ``weight * max_len`` pixels; the tip does
+    not necessarily reach (tx, ty).
+    """
+    dx, dy = tx - ax, ty - ay
+    dist = math.hypot(dx, dy)
+    if dist == 0:
+        return
+    ux, uy = dx / dist, dy / dist
+    length = weight * max_len
+    tip_x = ax + ux * length
+    tip_y = ay + uy * length
+
+    draw.line(
+        [(round(ax), round(ay)), (round(tip_x), round(tip_y))],
+        fill=colour,
+        width=1,
+    )
+
+    # Small filled triangle arrowhead at the tip
+    head = max(2, round(length * _ARROW_HEAD_FACTOR))
+    px, py = -uy * head, ux * head
+    pts = [
+        (round(tip_x), round(tip_y)),
+        (round(tip_x - ux * head + px), round(tip_y - uy * head + py)),
+        (round(tip_x - ux * head - px), round(tip_y - uy * head - py)),
+    ]
+    draw.polygon(pts, fill=colour)
+
+
 def _render_frame(
     bg: Image.Image,
     positions: list[Position],
@@ -138,15 +189,33 @@ def _render_frame(
     scores: list[float] | None = None,
     score_lo: float = 0.0,
     score_hi: float = 1.0,
+    attractions: list[list[AttractionVector]] | None = None,
 ) -> Image.Image:
     """Draw agents and global best onto a copy of *bg*.
 
     When *scores* is provided, each agent is coloured by its score
     (bright = low score, dim = high score).  When *scores* is ``None``
     all agents are drawn in the dim colour.
+
+    When *attractions* is provided, arrows are drawn from each agent
+    toward its attraction points before agents are rendered (so agents
+    appear on top).
     """
     frame = bg.copy()
     draw = ImageDraw.Draw(frame)
+
+    if attractions is not None:
+        max_len = _ARROW_MAX_LEN_FACTOR * agent_radius
+        for i, pos in enumerate(positions):
+            ax, ay = float(pos[0]), float(pos[1])
+            for vec in attractions[i]:
+                colour = _ATTRACTION_COLOURS.get(vec.kind, (255, 255, 255))
+                _draw_arrow(
+                    draw, ax, ay,
+                    float(vec.target[0]), float(vec.target[1]),
+                    vec.weight, colour, max_len,
+                )
+
     for i, pos in enumerate(positions):
         x, y = int(round(pos[0])), int(round(pos[1]))
         colour = (
@@ -186,6 +255,7 @@ def _simulate_frames(
     global_min: float,
     desc: str,
     progress_position: int,
+    show_attractions: bool = False,
 ) -> list[Image.Image]:
     """Run *swarm* and return every captured frame as a PIL Image."""
     def _lookup_best_score() -> float:
@@ -197,6 +267,7 @@ def _simulate_frames(
 
     def _frame(iteration: int) -> Image.Image:
         scores = swarm.get_scores() if colour_by_score else None
+        att = swarm.get_attractions() if show_attractions else None
         f = _render_frame(
             bg,
             swarm.get_positions(),
@@ -205,6 +276,7 @@ def _simulate_frames(
             scores,
             score_lo,
             score_hi,
+            att,
         )
         if detailed:
             info = _make_info_bar(
@@ -268,6 +340,7 @@ def build_gif(
     colour_by_score: bool = False,
     detailed: bool = False,
     use_gifsicle: bool = True,
+    show_attractions: bool = False,
     desc: str = "Simulating",
     progress_position: int = 0,
 ) -> None:
@@ -316,15 +389,16 @@ def build_gif(
         global_min=score_lo,
         desc=desc,
         progress_position=progress_position,
+        show_attractions=show_attractions,
     )
 
-    # Quantize every frame to one shared palette derived from frame 0,
-    # which contains the full static terrain and is therefore
-    # representative of all colours that appear in the animation.
-    # A consistent palette across frames allows gifsicle to use a single
-    # global colour table and makes delta-frame encoding effective.
+    # Quantize every frame to one shared palette.  When attraction arrows
+    # are enabled, frame 0 (iteration 0, no update yet) contains no arrows
+    # and therefore no arrow colours.  Use frame 1 in that case so the
+    # palette includes cyan/magenta/orange arrow colours.
     # Dithering is disabled: the noise it introduces hurts LZW compression.
-    palette_img = frames[0].quantize(colors=256)
+    palette_src = frames[1] if show_attractions and len(frames) > 1 else frames[0]
+    palette_img = palette_src.quantize(colors=256)
     quantized: list[Image.Image] = [
         f.quantize(palette=palette_img, dither=Image.Dither.NONE)
         for f in frames
@@ -357,6 +431,7 @@ def build_frames(
     colour_by_score: bool = False,
     detailed: bool = False,
     use_png: bool = False,
+    show_attractions: bool = False,
     desc: str = "Simulating",
     progress_position: int = 0,
 ) -> int:
@@ -403,6 +478,7 @@ def build_frames(
         global_min=score_lo,
         desc=desc,
         progress_position=progress_position,
+        show_attractions=show_attractions,
     )
 
     if use_png:

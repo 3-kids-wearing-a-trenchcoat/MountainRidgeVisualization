@@ -5,7 +5,9 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from mountain_ridge.swarm.base import Agent, Position, SearchSpace, Swarm
+from mountain_ridge.swarm.base import (
+    Agent, AttractionVector, Position, SearchSpace, Swarm,
+)
 
 _G_KEY = "g"
 
@@ -150,3 +152,40 @@ class PSOSwarm(Swarm):
         self._shared_memory[_G_KEY] = np.array(
             best.personal_best_position
         )
+
+    def get_attractions(self) -> list[list[AttractionVector]]:
+        gbest = np.array(self.get_best_position())
+        # Normalise by diagonal/3: a full-length arrow represents an agent
+        # that is ~33% of the grid diagonal away from its attractor.
+        # This reference gives visible variation across typical PSO states
+        # without capping almost every agent (v_max is too small) or making
+        # all arrows tiny (diagonal is too large).
+        hi = self._agents[0]._hi
+        diagonal = float(np.linalg.norm(hi))
+        ref = diagonal / 3.0
+        c_max = max(self._agents[0]._c1, self._agents[0]._c2)
+        result: list[list[AttractionVector]] = []
+        for agent in self._agents:
+            vectors: list[AttractionVector] = []
+            pos = agent._pos
+
+            d_pb = float(np.linalg.norm(agent._best_pos - pos))
+            if d_pb > 0:
+                w_pb = min(1.0, agent._c1 * d_pb / (c_max * ref))
+                vectors.append(AttractionVector(
+                    target=agent.personal_best_position,
+                    weight=w_pb,
+                    kind="pbest",
+                ))
+
+            d_gb = float(np.linalg.norm(gbest - pos))
+            if d_gb > 0:
+                w_gb = min(1.0, agent._c2 * d_gb / (c_max * ref))
+                vectors.append(AttractionVector(
+                    target=(float(gbest[0]), float(gbest[1])),
+                    weight=w_gb,
+                    kind="gbest",
+                ))
+
+            result.append(vectors)
+        return result

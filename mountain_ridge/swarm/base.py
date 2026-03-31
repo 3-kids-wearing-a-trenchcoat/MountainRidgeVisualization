@@ -2,11 +2,21 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 
 Position = tuple[float, ...]
 SearchSpace = Callable[[Position], float]
+
+
+@dataclass(frozen=True)
+class AttractionVector:
+    """An attraction from an agent toward one of its influence sources."""
+
+    target: Position  # position of the attractor
+    weight: float     # influence strength, normalised to [0, 1]
+    kind: str         # "pbest" | "gbest" | "firefly"
 
 
 class Agent(ABC):
@@ -51,3 +61,11 @@ class Swarm(ABC):
 
         All agents update their state, then shared memory is updated.
         """
+
+    def get_attractions(self) -> list[list[AttractionVector]]:
+        """Return per-agent attraction vectors for the current state.
+
+        Returns an empty inner list per agent by default; override in
+        subclasses that support attraction-arrow visualisation.
+        """
+        return [[] for _ in self.get_positions()]

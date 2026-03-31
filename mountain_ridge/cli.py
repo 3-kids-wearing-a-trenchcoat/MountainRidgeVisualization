@@ -27,6 +27,7 @@ class JobConfig:
     alpha: float | None
     levy_exp: float | None
     detailed: bool
+    show_attractions: bool
     frames: bool
     frames_png: bool
     use_gifsicle: bool
@@ -226,6 +227,17 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
+        "--show-attractions",
+        action="store_true",
+        default=False,
+        dest="show_attractions",
+        help=(
+            "Draw arrows from each agent toward its attraction points "
+            "(pbest/gbest for PSO; brighter fireflies for FA). "
+            "Arrow length encodes influence strength; colour encodes kind."
+        ),
+    )
+    parser.add_argument(
         "--frames",
         action="store_true",
         default=False,
@@ -358,6 +370,7 @@ def parse_jobs() -> list[JobConfig]:
             alpha=alpha,
             levy_exp=levy_exp,
             detailed=args.detailed,
+            show_attractions=args.show_attractions,
             frames=args.frames,
             frames_png=args.png,
             use_gifsicle=not args.no_gifsicle,

@@ -91,6 +91,7 @@ def _run_job(
             colour_by_score=(job.algorithm == "fa"),
             detailed=job.detailed,
             use_png=job.frames_png,
+            show_attractions=job.show_attractions,
             desc=output_path.name,
             progress_position=progress_position,
         )
@@ -106,6 +107,7 @@ def _run_job(
         colour_by_score=(job.algorithm == "fa"),
         detailed=job.detailed,
         use_gifsicle=use_gifsicle,
+        show_attractions=job.show_attractions,
         desc=output_path.name,
         progress_position=progress_position,
     )
