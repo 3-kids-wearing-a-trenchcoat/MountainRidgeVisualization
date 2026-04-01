@@ -40,6 +40,9 @@ class PSOAgent(Agent):
         self._w = w
         self._v_max = v_max
         self._rng = rng
+        self._last_inertia: NDArray[np.float64] = np.zeros(
+            2, dtype=np.float64
+        )
 
     def _as_position(self) -> Position:
         return (float(self._pos[0]), float(self._pos[1]))
@@ -66,6 +69,7 @@ class PSOAgent(Agent):
         r2 = self._rng.uniform(0.0, 1.0, size=2)
 
         # Step 2: velocity update
+        self._last_inertia = self._w * self._vel
         self._vel = (
             self._w * self._vel
             + self._c1 * r1 * (self._best_pos - self._pos)
@@ -185,6 +189,27 @@ class PSOSwarm(Swarm):
                     target=(float(gbest[0]), float(gbest[1])),
                     weight=w_gb,
                     kind="gbest",
+                ))
+
+            inertia_mag = float(np.linalg.norm(agent._last_inertia))
+            if inertia_mag > 0:
+                # Normalise by v_max (the tightest bound on inertia
+                # magnitude), not by c_max*ref.  Inertia is a velocity-
+                # based force bounded by v_max, whereas cognitive/social
+                # are position-based and naturally scale with c_max*ref.
+                # Using v_max keeps the arrow visible and meaningful:
+                # a full-length inertia arrow means the particle is
+                # carrying maximum momentum.
+                w_in = min(1.0, inertia_mag / agent._v_max)
+                unit = agent._last_inertia / inertia_mag
+                target_in: Position = (
+                    float(pos[0] + unit[0] * 1000.0),
+                    float(pos[1] + unit[1] * 1000.0),
+                )
+                vectors.append(AttractionVector(
+                    target=target_in,
+                    weight=w_in,
+                    kind="inertia",
                 ))
 
             result.append(vectors)
