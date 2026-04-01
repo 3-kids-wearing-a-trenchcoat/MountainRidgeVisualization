@@ -182,23 +182,17 @@ class FASwarm(Swarm):
         ]
 
     def get_attractions(self) -> list[list[AttractionVector]]:
-        # Min-max stretch: map beta from [beta_min, beta0] → [0, 1].
-        # beta_min is the smallest possible beta, reached at the maximum
-        # distance (the grid diagonal).  This fills the full [0, 1] range
-        # instead of compressing everything into a narrow band near 1.0
-        # (which happens because default gamma keeps attraction nearly flat
-        # across the whole grid).
+        # Normalise by beta0: weight = beta / beta0.
+        # beta0 is fixed at init, so the same beta value always produces
+        # the same arrow size regardless of frame or which other agents are
+        # present.  This keeps arrows comparable both within a frame and
+        # across frames.  Attractors whose influence falls below 1 % are
+        # omitted to reduce clutter.
         result: list[list[AttractionVector]] = []
         for agent in self._agents:
-            diag_sq = float(np.dot(agent._hi, agent._hi))
-            beta_min = agent._beta0 * math.exp(-agent._gamma * diag_sq)
-            beta_span = agent._beta0 - beta_min
             vectors: list[AttractionVector] = []
             for target, beta in agent._last_attractions:
-                if beta_span > 0:
-                    weight = (beta - beta_min) / beta_span
-                else:
-                    weight = 1.0
+                weight = beta / agent._beta0 if agent._beta0 > 0 else 0.0
                 weight = max(0.0, min(1.0, weight))
                 if weight >= 0.01:
                     vectors.append(AttractionVector(

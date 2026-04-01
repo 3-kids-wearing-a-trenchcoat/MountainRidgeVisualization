@@ -54,15 +54,21 @@ Pass `--show-attractions` to draw arrows from each agent toward the positions
 that are currently influencing its movement. Arrows are rendered beneath the
 agent dots so agents always appear on top.
 
-**Arrow length** is proportional to the strength of that influence:
-- **PSO** — length encodes `c · distance / v_max` for each attractor, so the
-  arrow grows with how much of the velocity cap that attractor is contributing.
-  Once the agent is far enough that the raw force would exceed `v_max`, the
-  arrow is capped at full length.
-- **FA** — length encodes `β / β₀ = exp(−γ r²)`, the Gaussian attractiveness
-  factor. Arrows shorten sharply with distance (controlled by `--gamma`).
-  Attractors whose influence falls below 1% (`β / β₀ < 0.01`) are omitted to
-  reduce clutter.
+**Arrow length** is proportional to the strength of that influence. All
+arrows within the same algorithm share a single fixed reference scale, so
+the same force always produces the same arrow size regardless of frame or
+what other agents are doing:
+
+- **PSO** — all three force types are velocity contributions and are
+  normalised by `v_max` (fixed at init). A full-length arrow means that
+  force alone would push the particle to the velocity cap. Cognitive and
+  social arrows saturate at full length when the attractor is farther than
+  `v_max / c` away, which correctly signals that the position-based pull is
+  at its effective maximum.
+- **FA** — length encodes `β / β₀`, the fraction of maximum attractiveness.
+  `β₀` is fixed at init, so the scale never shifts. Arrows shorten as the
+  attractor grows more distant (controlled by `--gamma`). Attractors whose
+  influence falls below 1% (`β / β₀ < 0.01`) are omitted to reduce clutter.
 - **SD** — length encodes the local gradient magnitude normalised by the
   steepest gradient found across all agents in the current frame. The agent
   on the steepest slope always gets a full-length arrow; all others are shown
@@ -74,6 +80,7 @@ agent dots so agents always appear on top.
 |--------|---------|
 | Cyan `(0, 200, 255)` | PSO — cognitive pull toward the agent's personal best (pbest) |
 | Magenta `(220, 0, 220)` | PSO — social pull toward the global best (gbest) |
+| Yellow `(255, 220, 0)` | PSO — inertia (momentum carried over from the previous velocity) |
 | Orange `(255, 140, 0)` | FA — attraction toward a brighter (lower-scoring) firefly |
 | Green `(0, 220, 80)` | SD — direction of steepest descent (negative gradient) |
 

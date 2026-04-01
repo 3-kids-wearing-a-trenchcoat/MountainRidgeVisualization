@@ -159,15 +159,13 @@ class PSOSwarm(Swarm):
 
     def get_attractions(self) -> list[list[AttractionVector]]:
         gbest = np.array(self.get_best_position())
-        # Normalise by diagonal/3: a full-length arrow represents an agent
-        # that is ~33% of the grid diagonal away from its attractor.
-        # This reference gives visible variation across typical PSO states
-        # without capping almost every agent (v_max is too small) or making
-        # all arrows tiny (diagonal is too large).
-        hi = self._agents[0]._hi
-        diagonal = float(np.linalg.norm(hi))
-        ref = diagonal / 3.0
-        c_max = max(self._agents[0]._c1, self._agents[0]._c2)
+        # All three PSO forces are velocity contributions (px/step) and are
+        # all normalised by v_max.  This puts them on a single fixed scale:
+        # a full-length arrow means that force alone would push the particle
+        # to the velocity cap.  Cognitive/social saturate (weight = 1) when
+        # the attractor is farther than v_max / c away, which correctly
+        # signals that the position-based pull is at its effective maximum.
+        v_max = self._agents[0]._v_max
         result: list[list[AttractionVector]] = []
         for agent in self._agents:
             vectors: list[AttractionVector] = []
@@ -175,7 +173,7 @@ class PSOSwarm(Swarm):
 
             d_pb = float(np.linalg.norm(agent._best_pos - pos))
             if d_pb > 0:
-                w_pb = min(1.0, agent._c1 * d_pb / (c_max * ref))
+                w_pb = min(1.0, agent._c1 * d_pb / v_max)
                 vectors.append(AttractionVector(
                     target=agent.personal_best_position,
                     weight=w_pb,
@@ -184,7 +182,7 @@ class PSOSwarm(Swarm):
 
             d_gb = float(np.linalg.norm(gbest - pos))
             if d_gb > 0:
-                w_gb = min(1.0, agent._c2 * d_gb / (c_max * ref))
+                w_gb = min(1.0, agent._c2 * d_gb / v_max)
                 vectors.append(AttractionVector(
                     target=(float(gbest[0]), float(gbest[1])),
                     weight=w_gb,
@@ -193,14 +191,7 @@ class PSOSwarm(Swarm):
 
             inertia_mag = float(np.linalg.norm(agent._last_inertia))
             if inertia_mag > 0:
-                # Normalise by v_max (the tightest bound on inertia
-                # magnitude), not by c_max*ref.  Inertia is a velocity-
-                # based force bounded by v_max, whereas cognitive/social
-                # are position-based and naturally scale with c_max*ref.
-                # Using v_max keeps the arrow visible and meaningful:
-                # a full-length inertia arrow means the particle is
-                # carrying maximum momentum.
-                w_in = min(1.0, inertia_mag / agent._v_max)
+                w_in = min(1.0, inertia_mag / v_max)
                 unit = agent._last_inertia / inertia_mag
                 target_in: Position = (
                     float(pos[0] + unit[0] * 1000.0),

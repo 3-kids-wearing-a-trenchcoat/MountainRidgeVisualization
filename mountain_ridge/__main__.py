@@ -150,12 +150,17 @@ def main() -> None:
                 output_path = _next_frames_dir(
                     job.output_dir, job.output_prefix
                 )
-                tqdm.write(f"Generating frames in {output_path}/ ...")
+                tqdm.write(
+                    f"Generating frames in {output_path}/"
+                    f" (seed={job.seed}) ..."
+                )
             else:
                 output_path = _next_output_path(
                     job.output_dir, job.output_prefix
                 )
-                tqdm.write(f"Generating {output_path} ...")
+                tqdm.write(
+                    f"Generating {output_path} (seed={job.seed}) ..."
+                )
             n_frames = _run_job(
                 job,
                 output_path,
