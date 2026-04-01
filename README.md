@@ -46,6 +46,8 @@ height, running from low to high:
 
 **SD (Steepest Descent)** — same score-based colour gradient as FA. Because agents are fully independent, colour shows at a glance which agents have converged to good local minima (yellow) versus which are still high up or stuck on a plateau (red).
 
+**SA (Simulated Annealing)** — same score-based colour gradient as FA and SD. Each agent cools independently, so colour reflects how well each parallel run has settled: yellow agents have found low-scoring positions, red agents are still exploring or stuck at high elevation.
+
 The goal of each algorithm is to drive the yellow circle onto the white diamond.
 
 ### Attraction arrows
@@ -132,7 +134,7 @@ The counter `NN` increments automatically to avoid overwriting existing files.
 |--------------------------|-------|----------|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `--dimensions`           | `-d`  | `WxH`    | `100x100`  | Width and height of the search space grid                                                                                                                                                                       |
 | `--seed`                 | `-s`  | `int`    | *(random)* | Random seed for the search space and agents. Omit for a fresh random seed per job                                                                                                                               |
-| `--algorithm`            | `-a`  | `string` | `pso`      | Optimization algorithm to use. Available: `pso`, `fa`, `sd` (Particle Swarm Optimization, Firefly Algorithm, and Steepest Descent respectively)                                                                 |
+| `--algorithm`            | `-a`  | `string` | `pso`      | Optimization algorithm to use. Available: `pso`, `fa`, `sd`, `sa` (Particle Swarm Optimization, Firefly Algorithm, Steepest Descent, and Simulated Annealing respectively)                                     |
 | `--space`                |       | `string` | `ridge`    | Search space function. Available: `ridge`, `gaussian`, `rastrigin`, `ackley`, `multiwell`, `deceptive`                                                                                                          |
 | `--n-agents`             | `-n`  | `int`    | `20`       | Number of agents in the swarm                                                                                                                                                                                   |
 | `--iterations`           | `-i`  | `int`    | `100`      | Total number of simulation steps                                                                                                                                                                                |
@@ -146,6 +148,9 @@ The counter `NN` increments automatically to avoid overwriting existing files.
 | `--levy-exp`             |       | `float`  | `1.5`      | **FA only.** Lévy exponent `λ` — controls tail weight of the Lévy distribution. Only used when `--variant levy`. Typical range `[1.0, 2.0]`. Error if used with a non-FA algorithm.                             |
 | `--sd-step`              |       | `float`  | *(auto)*   | **SD only.** Initial step length for backtracking line search. Default scales with the grid: `0.1 · min(W, H)`. Error if used with a non-SD algorithm.                                                          |
 | `--sd-alpha`             |       | `float`  | `0.0`      | **SD only.** Random perturbation amplitude `α` added unconditionally every iteration. `0.0` gives strictly deterministic steepest descent. Error if used with a non-SD algorithm.                               |
+| `--sa-t0`                |       | `float`  | *(auto)*   | **SA only.** Initial temperature `T₀`. Default: `0.3 · (f_max − f_min)` of the search space. Error if used with a non-SA algorithm.                                                                            |
+| `--sa-cooling-rate`      |       | `float`  | `0.95`     | **SA only.** Geometric cooling factor `α` applied each iteration: `T ← α · T`. Error if used with a non-SA algorithm.                                                                                          |
+| `--sa-step`              |       | `float`  | *(auto)*   | **SA only.** Half-width of the uniform neighbour proposal step. Default scales with the grid: `0.1 · min(W, H)`. Error if used with a non-SA algorithm.                                                         |
 | `--dot-size`             |       | `int`    | *(auto)*   | Agent dot radius in pixels. Omit to scale automatically: `max(2, round(min(W, H) / 35))`                                                                                                                        |
 | `--show-attractions`     |       | flag     | off        | Draw arrows from each agent toward its attraction points. Arrow length encodes influence strength; colour encodes kind. See [Attraction arrows](#attraction-arrows).                                              |
 | `--detailed`             |       | flag     | off        | Append a statistics bar (150 px wide) to the right of every frame. See [Detailed output](#detailed-output).                                                                                                     |
@@ -191,6 +196,34 @@ shallow minima, trading accuracy for exploration.
 
 **No communication** — agents share no memory. The yellow best-position
 marker tracks the lowest score found by any individual agent's personal best.
+
+### Simulated Annealing (SA)
+
+SA is a probabilistic local search heuristic included as a baseline for
+comparison with swarm algorithms. Multiple agents are run simultaneously as
+fully independent parallel searches from random starting positions — identical
+in structure to SD, but with a probabilistic acceptance rule instead of a
+strict descent rule.
+
+Each iteration an agent proposes a random **neighbour** position by adding a
+uniform displacement `α · U(−0.5, 0.5)²` (scaled by `--sa-step`) to its
+current position. The move is always accepted if it improves the objective.
+Worsening moves are accepted with probability `exp(−Δf / T)`, where `T` is the
+current temperature and `Δf` is the increase in height. After each iteration
+the temperature cools geometrically: `T ← cooling_rate · T`, flooring at
+`1e-4`.
+
+At high temperature the agent accepts almost any move, enabling broad
+exploration. As temperature falls, the agent becomes increasingly selective and
+converges toward the best basin it has found.
+
+**Initial temperature** — The default `T₀ = 0.3 · (f_max − f_min)` is derived
+from the full height range of the search space, so that at the start a move
+worsening the objective by 30% of the total range is still accepted with
+probability `e⁻¹ ≈ 37%`.
+
+**No communication** — agents share no memory. The yellow best-position marker
+tracks the lowest score found by any individual agent's personal best.
 
 ### Detailed output
 
@@ -290,4 +323,13 @@ python -m mountain_ridge --algorithm sd --show-attractions --seed 42 --dimension
 
 # Side-by-side comparison: SD vs PSO on the same seed
 python -m mountain_ridge --algorithm sd pso --seed 42 --dimensions 200x200
+
+# Simulated annealing (default parameters)
+python -m mountain_ridge --algorithm sa --seed 42 --dimensions 200x200
+
+# SA with a slower cooling schedule to explore longer
+python -m mountain_ridge --algorithm sa --sa-cooling-rate 0.99 --seed 42 --dimensions 200x200
+
+# Side-by-side comparison: SA vs SD on the same seed
+python -m mountain_ridge --algorithm sa sd --seed 42 --dimensions 200x200
 ```

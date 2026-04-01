@@ -28,6 +28,9 @@ class JobConfig:
     levy_exp: float | None
     sd_step: float | None
     sd_alpha: float | None
+    sa_t0: float | None
+    sa_cooling_rate: float | None
+    sa_step: float | None
     detailed: bool
     show_attractions: bool
     frames: bool
@@ -237,6 +240,42 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
+        "--sa-t0",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="T",
+        dest="sa_t0",
+        help=(
+            "SA initial temperature (default: 0.3 · (f_max − f_min) of the "
+            "search space). Error if used with a non-SA algorithm."
+        ),
+    )
+    parser.add_argument(
+        "--sa-cooling-rate",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="A",
+        dest="sa_cooling_rate",
+        help=(
+            "SA geometric cooling factor per iteration (default: 0.95). "
+            "Error if used with a non-SA algorithm."
+        ),
+    )
+    parser.add_argument(
+        "--sa-step",
+        nargs="+",
+        type=float,
+        default=None,
+        metavar="S",
+        dest="sa_step",
+        help=(
+            "SA neighbour proposal step size (default: 0.1 · min(W, H)). "
+            "Error if used with a non-SA algorithm."
+        ),
+    )
+    parser.add_argument(
         "--no-gifsicle",
         action="store_true",
         default=False,
@@ -344,6 +383,21 @@ def parse_jobs() -> list[JobConfig]:
                 f"--algorithm sd (got: {bad})"
             )
 
+    sa_flags_given = [
+        name for name, val in [
+            ("--sa-t0",           args.sa_t0),
+            ("--sa-cooling-rate", args.sa_cooling_rate),
+            ("--sa-step",         args.sa_step),
+        ] if val is not None
+    ]
+    if sa_flags_given:
+        bad = [a for a in args.algorithm if a != "sa"]
+        if bad:
+            parser.error(
+                f"{', '.join(sa_flags_given)} only supported with "
+                f"--algorithm sa (got: {bad})"
+            )
+
     seeds: list[int | None] = (
         [None] if args.seed is None else args.seed
     )
@@ -374,6 +428,15 @@ def parse_jobs() -> list[JobConfig]:
     sd_alphas: list[float | None] = (
         [None] if args.sd_alpha is None else args.sd_alpha
     )
+    sa_t0s: list[float | None] = (
+        [None] if args.sa_t0 is None else args.sa_t0
+    )
+    sa_cooling_rates: list[float | None] = (
+        [None] if args.sa_cooling_rate is None else args.sa_cooling_rate
+    )
+    sa_steps: list[float | None] = (
+        [None] if args.sa_step is None else args.sa_step
+    )
 
     jobs: list[JobConfig] = []
     for combo in itertools.product(
@@ -394,12 +457,16 @@ def parse_jobs() -> list[JobConfig]:
         levy_exps,
         sd_steps,
         sd_alphas,
+        sa_t0s,
+        sa_cooling_rates,
+        sa_steps,
     ):
         (
             dims, seed, algo, space, n_agents,
             iters, ipf, fps, dot, w,
             variant, gamma, beta0, alpha, levy_exp,
             sd_step, sd_alpha,
+            sa_t0, sa_cooling_rate, sa_step,
         ) = combo
         resolved_seed: int = (
             random.randint(0, 2**31 - 1) if seed is None else seed
@@ -422,6 +489,9 @@ def parse_jobs() -> list[JobConfig]:
             levy_exp=levy_exp,
             sd_step=sd_step,
             sd_alpha=sd_alpha,
+            sa_t0=sa_t0,
+            sa_cooling_rate=sa_cooling_rate,
+            sa_step=sa_step,
             detailed=args.detailed,
             show_attractions=args.show_attractions,
             frames=args.frames,
