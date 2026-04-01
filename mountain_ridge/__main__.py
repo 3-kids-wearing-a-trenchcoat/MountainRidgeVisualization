@@ -97,6 +97,8 @@ def _run_job(
             kwargs["step_size"] = job.sa_step
     swarm = swarm_cls(**kwargs)  # type: ignore[call-arg]
 
+    show_best = job.algorithm != "sa"
+
     if job.frames:
         output_path.mkdir(parents=True, exist_ok=True)
         return build_frames(
@@ -110,6 +112,7 @@ def _run_job(
             detailed=job.detailed,
             use_png=job.frames_png,
             show_attractions=job.show_attractions,
+            show_best=show_best,
             desc=output_path.name,
             progress_position=progress_position,
         )
@@ -126,6 +129,7 @@ def _run_job(
         detailed=job.detailed,
         use_gifsicle=use_gifsicle,
         show_attractions=job.show_attractions,
+        show_best=show_best,
         desc=output_path.name,
         progress_position=progress_position,
     )

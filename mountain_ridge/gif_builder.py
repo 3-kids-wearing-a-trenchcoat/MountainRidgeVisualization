@@ -192,6 +192,7 @@ def _render_frame(
     score_lo: float = 0.0,
     score_hi: float = 1.0,
     attractions: list[list[AttractionVector]] | None = None,
+    show_best: bool = True,
 ) -> Image.Image:
     """Draw agents and global best onto a copy of *bg*.
 
@@ -232,14 +233,15 @@ def _render_frame(
             outline=(0, 0, 0),
             width=1,
         )
-    bx, by = int(round(best[0])), int(round(best[1]))
-    r = agent_radius + 2
-    draw.ellipse(
-        [bx - r, by - r, bx + r, by + r],
-        fill=_BEST_COLOUR,
-        outline=(0, 0, 0),
-        width=1,
-    )
+    if show_best:
+        bx, by = int(round(best[0])), int(round(best[1]))
+        r = agent_radius + 2
+        draw.ellipse(
+            [bx - r, by - r, bx + r, by + r],
+            fill=_BEST_COLOUR,
+            outline=(0, 0, 0),
+            width=1,
+        )
     return frame
 
 
@@ -258,6 +260,7 @@ def _simulate_frames(
     desc: str,
     progress_position: int,
     show_attractions: bool = False,
+    show_best: bool = True,
 ) -> list[Image.Image]:
     """Run *swarm* and return every captured frame as a PIL Image."""
     def _lookup_best_score() -> float:
@@ -279,6 +282,7 @@ def _simulate_frames(
             score_lo,
             score_hi,
             att,
+            show_best,
         )
         if detailed:
             info = _make_info_bar(
@@ -343,6 +347,7 @@ def build_gif(
     detailed: bool = False,
     use_gifsicle: bool = True,
     show_attractions: bool = False,
+    show_best: bool = True,
     desc: str = "Simulating",
     progress_position: int = 0,
 ) -> None:
@@ -392,6 +397,7 @@ def build_gif(
         desc=desc,
         progress_position=progress_position,
         show_attractions=show_attractions,
+        show_best=show_best,
     )
 
     # Quantize every frame to one shared palette.  When attraction arrows
@@ -434,6 +440,7 @@ def build_frames(
     detailed: bool = False,
     use_png: bool = False,
     show_attractions: bool = False,
+    show_best: bool = True,
     desc: str = "Simulating",
     progress_position: int = 0,
 ) -> int:
@@ -481,6 +488,7 @@ def build_frames(
         desc=desc,
         progress_position=progress_position,
         show_attractions=show_attractions,
+        show_best=show_best,
     )
 
     if use_png:
