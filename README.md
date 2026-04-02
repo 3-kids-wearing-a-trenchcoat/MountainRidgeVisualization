@@ -140,17 +140,17 @@ The counter `NN` increments automatically to avoid overwriting existing files.
 | `--iterations`           | `-i`  | `int`    | `100`      | Total number of simulation steps                                                                                                                                                                                |
 | `--iterations_per_frame` |       | `int`    | `5`        | Simulation steps between captured frames                                                                                                                                                                        |
 | `--fps`                  |       | `int`    | `10`       | Playback speed of the output GIF (frames per second)                                                                                                                                                            |
-| `--inertia`              |       | `float`  | `0.0`      | **PSO only.** Inertia weight `w` — scales how much of the previous velocity carries over each iteration. Typical range `[0, 1]`. Error if used with a non-PSO algorithm.                                        |
-| `--variant`              |       | `string` | `brownian` | **FA only.** Random walk distribution: `brownian` (bounded uniform step, `U(−0.5, 0.5)`) or `levy` (heavy-tailed Lévy flight, same typical scale as `brownian` but with occasional large jumps; better at escaping local minima). Error if used with a non-FA algorithm. |
-| `--gamma`                |       | `float`  | *(auto)*   | **FA only.** Light absorption coefficient `γ` — controls how quickly attractiveness decays with distance. Higher values shorten attraction range and preserve diversity. Default scales with the grid: `1 / min(W, H)²`. Error if used with a non-FA algorithm. |
-| `--beta0`                |       | `float`  | `1.0`      | **FA only.** Maximum attractiveness `β₀` at distance zero. Error if used with a non-FA algorithm.                                                                                                               |
-| `--alpha`                |       | `float`  | *(auto)*   | **FA only.** Random walk step size `α`. Default scales with the grid: `0.05 · min(W, H)`. Error if used with a non-FA algorithm.                                                                                |
-| `--levy_exp`             |       | `float`  | `1.5`      | **FA only.** Lévy exponent `λ` — controls tail weight of the Lévy distribution. Only used when `--variant levy`. Typical range `[1.0, 2.0]`. Error if used with a non-FA algorithm.                             |
-| `--sd_step`              |       | `float`  | *(auto)*   | **SD only.** Initial step length for backtracking line search. Default scales with the grid: `0.1 · min(W, H)`. Error if used with a non-SD algorithm.                                                          |
-| `--sd_alpha`             |       | `float`  | `0.0`      | **SD only.** Random perturbation amplitude `α` added unconditionally every iteration. `0.0` gives strictly deterministic steepest descent. Error if used with a non-SD algorithm.                               |
-| `--sa_t0`                |       | `float`  | *(auto)*   | **SA only.** Initial temperature `T₀`. Default: `0.3 · (f_max − f_min)` of the search space. Error if used with a non-SA algorithm.                                                                            |
-| `--sa_cooling_rate`      |       | `float`  | `0.95`     | **SA only.** Geometric cooling factor `α` applied each iteration: `T ← α · T`. Error if used with a non-SA algorithm.                                                                                          |
-| `--sa_step`              |       | `float`  | *(auto)*   | **SA only.** Half-width of the uniform neighbour proposal step. Default scales with the grid: `0.1 · min(W, H)`. Error if used with a non-SA algorithm.                                                         |
+| `--inertia`              |       | `float`  | `0.0`      | **PSO only.** Inertia weight `w` — scales how much of the previous velocity carries over each iteration. Typical range `[0, 1]`. Only applied to PSO jobs; ignored for other algorithms.                                        |
+| `--variant`              |       | `string` | `brownian` | **FA only.** Random walk distribution: `brownian` (bounded uniform step, `U(−0.5, 0.5)`) or `levy` (heavy-tailed Lévy flight, same typical scale as `brownian` but with occasional large jumps; better at escaping local minima). Only applied to FA jobs; ignored for other algorithms. |
+| `--gamma`                |       | `float`  | *(auto)*   | **FA only.** Light absorption coefficient `γ` — controls how quickly attractiveness decays with distance. Higher values shorten attraction range and preserve diversity. Default scales with the grid: `1 / min(W, H)²`. Only applied to FA jobs; ignored for other algorithms. |
+| `--beta0`                |       | `float`  | `1.0`      | **FA only.** Maximum attractiveness `β₀` at distance zero. Only applied to FA jobs; ignored for other algorithms.                                                                                                               |
+| `--alpha`                |       | `float`  | *(auto)*   | **FA only.** Random walk step size `α`. Default scales with the grid: `0.05 · min(W, H)`. Only applied to FA jobs; ignored for other algorithms.                                                                                |
+| `--levy_exp`             |       | `float`  | `1.5`      | **FA only.** Lévy exponent `λ` — controls tail weight of the Lévy distribution. Only used when `--variant levy`. Typical range `[1.0, 2.0]`. Only applied to FA jobs; ignored for other algorithms.                             |
+| `--sd_step`              |       | `float`  | *(auto)*   | **SD only.** Initial step length for backtracking line search. Default scales with the grid: `0.1 · min(W, H)`. Only applied to SD jobs; ignored for other algorithms.                                                          |
+| `--sd_alpha`             |       | `float`  | `0.0`      | **SD only.** Random perturbation amplitude `α` added unconditionally every iteration. `0.0` gives strictly deterministic steepest descent. Only applied to SD jobs; ignored for other algorithms.                               |
+| `--sa_t0`                |       | `float`  | *(auto)*   | **SA only.** Initial temperature `T₀`. Default: `0.3 · (f_max − f_min)` of the search space. Only applied to SA jobs; ignored for other algorithms.                                                                            |
+| `--sa_cooling_rate`      |       | `float`  | `0.95`     | **SA only.** Geometric cooling factor `α` applied each iteration: `T ← α · T`. Only applied to SA jobs; ignored for other algorithms.                                                                                          |
+| `--sa_step`              |       | `float`  | *(auto)*   | **SA only.** Half-width of the uniform neighbour proposal step. Default scales with the grid: `0.1 · min(W, H)`. Only applied to SA jobs; ignored for other algorithms.                                                         |
 | `--dot_size`             |       | `int`    | *(auto)*   | Agent dot radius in pixels. Omit to scale automatically: `max(2, round(min(W, H) / 35))`                                                                                                                        |
 | `--show_attractions`     |       | flag     | off        | Draw arrows from each agent toward its attraction points. Arrow length encodes influence strength; colour encodes kind. See [Attraction arrows](#attraction-arrows).                                              |
 | `--detailed`             |       | flag     | off        | Append a statistics bar (150 px wide) to the right of every frame. See [Detailed output](#detailed-output).                                                                                                     |
@@ -291,6 +291,15 @@ python -m mountain_ridge --seed 1 2 --n_agents 10 20
 ```
 Produces 4 GIFs: `(seed=1, n=10)`, `(seed=1, n=20)`, `(seed=2, n=10)`,
 `(seed=2, n=20)`.
+
+**Algorithm-specific parameters** (`--inertia`, `--variant`, `--gamma`, etc.)
+are an exception to the global Cartesian product: they expand only within
+their own algorithm's jobs and are ignored for every other algorithm. When
+batching multiple algorithms, each algorithm is independently crossed with
+its own specific parameters, and the results are concatenated. For example,
+`--algorithm pso fa --inertia 0.3 0.6 --variant brownian levy --n_agents 10 20`
+produces 4 PSO jobs (2 inertia × 2 n_agents) plus 4 FA jobs
+(2 variants × 2 n_agents) = 8 jobs total.
 
 In batch mode a nested progress bar is shown: the outer bar tracks overall job
 progress and the inner bar tracks iterations within the current job.

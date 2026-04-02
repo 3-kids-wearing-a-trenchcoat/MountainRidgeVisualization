@@ -71,13 +71,13 @@ seed = [42]
 # Available: pso (Particle Swarm), fa (Firefly), sd (Steepest Descent),
 #            sa (Simulated Annealing)
 # Listing more than one produces one GIF per algorithm — useful for
-# side-by-side comparisons on the same seed and space:
-#   algorithm = ["pso", "fa", "sd", "sa"]
-# When batching across multiple algorithms, leave the algorithm-specific
-# sections below empty ([] or omit the keys); their parameters only apply
-# to their own algorithm type, and setting a concrete value while another
-# algorithm is also listed will raise a validation error.
-algorithm = ["pso"]
+# side-by-side comparisons on the same seed and space.
+# Algorithm-specific parameters (in the sections below) only apply to
+# their own algorithm and are ignored for any other algorithm in the list.
+# Each algorithm is expanded against its own specific params independently,
+# so the total job count is the sum across algorithms of
+#   (algo-specific combos) × (common-param combos).
+algorithm = ["pso", "fa"]
 
 # ── Swarm parameters ──────────────────────────────────────────────────────────
 
@@ -117,8 +117,7 @@ inertia = [0.3]
 # "brownian" — bounded uniform step, good general-purpose default.
 # "levy"     — heavy-tailed Lévy flight; occasional large jumps help escape
 #              local minima at the cost of more erratic trajectories.
-# e.g. variant = ["brownian"]
-variant = []
+variant = ["brownian"]
 
 # Light absorption coefficient γ.  Controls how quickly attractiveness decays
 # with distance.  Higher γ → shorter attraction range → more diversity.
@@ -126,8 +125,7 @@ variant = []
 gamma = []
 
 # Maximum attractiveness β₀ at distance zero.
-# e.g. beta0 = [1.0]
-beta0 = []
+beta0 = [1.0]
 
 # Random walk step size α.
 # Empty list or omit → auto-scaled to 0.05 · min(W,H).
@@ -136,8 +134,7 @@ alpha = []
 # Lévy exponent λ (only used when variant = "levy").
 # Controls the tail weight of the distribution.  Range [1.0, 2.0].
 # Values closer to 1 produce heavier tails and more frequent large jumps.
-# e.g. levy_exp = [1.5]
-levy_exp = []
+levy_exp = [1.5]
 
 # ── SD-specific parameters ────────────────────────────────────────────────────
 # Only consulted when algorithm includes "sd".  Ignored otherwise.

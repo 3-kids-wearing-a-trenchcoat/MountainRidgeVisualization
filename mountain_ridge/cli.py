@@ -1,12 +1,12 @@
 """CLI argument parsing and batch job generation."""
 
 import argparse
-import itertools
-import random
 import sys
 from pathlib import Path
 
-from mountain_ridge.config_file import JobConfig, _parse_dims, load_config
+from mountain_ridge.config_file import (
+    JobConfig, _build_jobs, _parse_dims, load_config,
+)
 
 
 def parse_jobs() -> list[JobConfig]:
@@ -325,60 +325,6 @@ def parse_jobs() -> list[JobConfig]:
     if args.png and not args.frames:
         parser.error("--png requires --frames")
 
-    if args.inertia is not None:
-        bad = [a for a in args.algorithm if a != "pso"]
-        if bad:
-            parser.error(
-                f"--inertia is only supported with --algorithm pso "
-                f"(got: {bad})"
-            )
-
-    fa_flags_given = [
-        name for name, val in [
-            ("--variant", args.variant),
-            ("--gamma",   args.gamma),
-            ("--beta0",   args.beta0),
-            ("--alpha",   args.alpha),
-            ("--levy_exp", args.levy_exp),
-        ] if val is not None
-    ]
-    if fa_flags_given:
-        bad = [a for a in args.algorithm if a != "fa"]
-        if bad:
-            parser.error(
-                f"{', '.join(fa_flags_given)} only supported with "
-                f"--algorithm fa (got: {bad})"
-            )
-
-    sd_flags_given = [
-        name for name, val in [
-            ("--sd_step",  args.sd_step),
-            ("--sd_alpha", args.sd_alpha),
-        ] if val is not None
-    ]
-    if sd_flags_given:
-        bad = [a for a in args.algorithm if a != "sd"]
-        if bad:
-            parser.error(
-                f"{', '.join(sd_flags_given)} only supported with "
-                f"--algorithm sd (got: {bad})"
-            )
-
-    sa_flags_given = [
-        name for name, val in [
-            ("--sa_t0",           args.sa_t0),
-            ("--sa_cooling_rate", args.sa_cooling_rate),
-            ("--sa_step",         args.sa_step),
-        ] if val is not None
-    ]
-    if sa_flags_given:
-        bad = [a for a in args.algorithm if a != "sa"]
-        if bad:
-            parser.error(
-                f"{', '.join(sa_flags_given)} only supported with "
-                f"--algorithm sa (got: {bad})"
-            )
-
     seeds: list[int | None] = (
         [None] if args.seed is None else args.seed
     )
@@ -419,67 +365,32 @@ def parse_jobs() -> list[JobConfig]:
         [None] if args.sa_step is None else args.sa_step
     )
 
-    jobs: list[JobConfig] = []
-    for combo in itertools.product(
-        args.dimensions,
-        seeds,
-        args.algorithm,
-        args.space,
-        args.n_agents,
-        args.iterations,
-        args.iterations_per_frame,
-        args.fps,
-        dot_sizes,
-        inertias,
-        variants,
-        gammas,
-        beta0s,
-        alphas,
-        levy_exps,
-        sd_steps,
-        sd_alphas,
-        sa_t0s,
-        sa_cooling_rates,
-        sa_steps,
-    ):
-        (
-            dims, seed, algo, space, n_agents,
-            iters, ipf, fps, dot, w,
-            variant, gamma, beta0, alpha, levy_exp,
-            sd_step, sd_alpha,
-            sa_t0, sa_cooling_rate, sa_step,
-        ) = combo
-        resolved_seed: int = (
-            random.randint(0, 2**31 - 1) if seed is None else seed
-        )
-        jobs.append(JobConfig(
-            dimensions=dims,
-            seed=resolved_seed,
-            algorithm=algo,
-            space=space,
-            n_agents=n_agents,
-            iterations=iters,
-            iterations_per_frame=ipf,
-            fps=fps,
-            dot_size=dot,
-            inertia=w,
-            variant=variant,
-            gamma=gamma,
-            beta0=beta0,
-            alpha=alpha,
-            levy_exp=levy_exp,
-            sd_step=sd_step,
-            sd_alpha=sd_alpha,
-            sa_t0=sa_t0,
-            sa_cooling_rate=sa_cooling_rate,
-            sa_step=sa_step,
-            detailed=args.detailed,
-            show_attractions=args.show_attractions,
-            frames=args.frames,
-            frames_png=args.png,
-            use_gifsicle=not args.no_gifsicle,
-            output_prefix=args.output_prefix,
-            output_dir=output_dir,
-        ))
-
-    return jobs
+    return _build_jobs(
+        dimensions=args.dimensions,
+        seeds=seeds,
+        algorithms=args.algorithm,
+        spaces=args.space,
+        n_agents_l=args.n_agents,
+        iterations_l=args.iterations,
+        ipf_l=args.iterations_per_frame,
+        fps_l=args.fps,
+        dot_sizes=dot_sizes,
+        inertias=inertias,
+        variants=variants,
+        gammas=gammas,
+        beta0s=beta0s,
+        fa_alphas=alphas,
+        levy_exps=levy_exps,
+        sd_steps=sd_steps,
+        sd_alphas=sd_alphas,
+        sa_t0s=sa_t0s,
+        sa_cooling_rates=sa_cooling_rates,
+        sa_steps=sa_steps,
+        detailed=args.detailed,
+        show_attractions=args.show_attractions,
+        frames=args.frames,
+        frames_png=args.png,
+        use_gifsicle=not args.no_gifsicle,
+        output_prefix=args.output_prefix,
+        output_dir=output_dir,
+    )

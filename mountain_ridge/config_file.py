@@ -61,6 +61,125 @@ def _parse_dims(value: str) -> tuple[int, int]:
     return w, h
 
 
+def _build_jobs(
+    dimensions: list[tuple[int, int]],
+    seeds: list[int | None],
+    algorithms: list[str],
+    spaces: list[str],
+    n_agents_l: list[int],
+    iterations_l: list[int],
+    ipf_l: list[int],
+    fps_l: list[int],
+    dot_sizes: list[int | None],
+    inertias: list[float | None],
+    variants: list[str | None],
+    gammas: list[float | None],
+    beta0s: list[float | None],
+    fa_alphas: list[float | None],
+    levy_exps: list[float | None],
+    sd_steps: list[float | None],
+    sd_alphas: list[float | None],
+    sa_t0s: list[float | None],
+    sa_cooling_rates: list[float | None],
+    sa_steps: list[float | None],
+    detailed: bool,
+    show_attractions: bool,
+    frames: bool,
+    frames_png: bool,
+    use_gifsicle: bool,
+    output_prefix: str,
+    output_dir: Path,
+) -> list[JobConfig]:
+    """Expand parameter lists into one JobConfig per combination.
+
+    Common parameters are crossed with all algorithms; each algorithm
+    is then crossed only with *its own* specific parameters, so PSO
+    inertia values never bleed into FA jobs and vice-versa.
+    """
+    jobs: list[JobConfig] = []
+    for common in itertools.product(
+        dimensions, seeds, spaces, n_agents_l,
+        iterations_l, ipf_l, fps_l, dot_sizes,
+    ):
+        dims, seed, space, n_agents, iters, ipf, fps, dot = common
+        for algo in algorithms:
+            if algo == "pso":
+                specific_iter = itertools.product(inertias)
+            elif algo == "fa":
+                specific_iter = itertools.product(
+                    variants, gammas, beta0s, fa_alphas, levy_exps
+                )
+            elif algo == "sd":
+                specific_iter = itertools.product(sd_steps, sd_alphas)
+            elif algo == "sa":
+                specific_iter = itertools.product(
+                    sa_t0s, sa_cooling_rates, sa_steps
+                )
+            else:
+                specific_iter = iter([()])
+
+            for specific in specific_iter:
+                if algo == "pso":
+                    (w,) = specific
+                    variant = gamma = beta0 = alpha = levy_exp = None
+                    sd_step = sd_alpha = None
+                    sa_t0 = sa_cooling_rate = sa_step = None
+                elif algo == "fa":
+                    w = None
+                    (variant, gamma, beta0, alpha, levy_exp) = specific
+                    sd_step = sd_alpha = None
+                    sa_t0 = sa_cooling_rate = sa_step = None
+                elif algo == "sd":
+                    w = None
+                    variant = gamma = beta0 = alpha = levy_exp = None
+                    (sd_step, sd_alpha) = specific
+                    sa_t0 = sa_cooling_rate = sa_step = None
+                elif algo == "sa":
+                    w = None
+                    variant = gamma = beta0 = alpha = levy_exp = None
+                    sd_step = sd_alpha = None
+                    (sa_t0, sa_cooling_rate, sa_step) = specific
+                else:
+                    w = variant = gamma = beta0 = alpha = levy_exp = None
+                    sd_step = sd_alpha = None
+                    sa_t0 = sa_cooling_rate = sa_step = None
+
+                resolved_seed: int = (
+                    random.randint(0, 2**31 - 1)
+                    if seed is None else seed
+                )
+                jobs.append(JobConfig(
+                    dimensions=dims,
+                    seed=resolved_seed,
+                    algorithm=algo,
+                    space=space,
+                    n_agents=n_agents,
+                    iterations=iters,
+                    iterations_per_frame=ipf,
+                    fps=fps,
+                    dot_size=dot,
+                    inertia=w,
+                    variant=variant,
+                    gamma=gamma,
+                    beta0=beta0,
+                    alpha=alpha,
+                    levy_exp=levy_exp,
+                    sd_step=sd_step,
+                    sd_alpha=sd_alpha,
+                    sa_t0=sa_t0,
+                    sa_cooling_rate=sa_cooling_rate,
+                    sa_step=sa_step,
+                    detailed=detailed,
+                    show_attractions=show_attractions,
+                    frames=frames,
+                    frames_png=frames_png,
+                    use_gifsicle=use_gifsicle,
+                    output_prefix=output_prefix,
+                    output_dir=output_dir,
+                ))
+    return jobs
+
+
 def load_config(path: Path) -> list[JobConfig]:
     """Load job configurations from a TOML config file."""
     if not path.exists():
@@ -189,126 +308,32 @@ def load_config(path: Path) -> list[JobConfig]:
         _get(sa_s, "step", [None])
     )
 
-    # ── Cross-algorithm validation ────────────────────────────────────────
-    if any(v is not None for v in inertias):
-        bad = [a for a in algorithms if a != "pso"]
-        if bad:
-            raise ValueError(
-                f"[pso].inertia only supported with algorithm "
-                f"'pso' (got: {bad})"
-            )
-
-    fa_given = [
-        name for name, lst in [
-            ("variant",  variants),
-            ("gamma",    gammas),
-            ("beta0",    beta0s),
-            ("alpha",    fa_alphas),
-            ("levy_exp", levy_exps),
-        ] if any(v is not None for v in lst)
-    ]
-    if fa_given:
-        bad = [a for a in algorithms if a != "fa"]
-        if bad:
-            keys = ", ".join(f"[fa].{k}" for k in fa_given)
-            raise ValueError(
-                f"{keys} only supported with algorithm "
-                f"'fa' (got: {bad})"
-            )
-
-    sd_given = [
-        name for name, lst in [
-            ("step",  sd_steps),
-            ("alpha", sd_alphas),
-        ] if any(v is not None for v in lst)
-    ]
-    if sd_given:
-        bad = [a for a in algorithms if a != "sd"]
-        if bad:
-            keys = ", ".join(f"[sd].{k}" for k in sd_given)
-            raise ValueError(
-                f"{keys} only supported with algorithm "
-                f"'sd' (got: {bad})"
-            )
-
-    sa_given = [
-        name for name, lst in [
-            ("t0",           sa_t0s),
-            ("cooling_rate", sa_cooling_rates),
-            ("step",         sa_steps),
-        ] if any(v is not None for v in lst)
-    ]
-    if sa_given:
-        bad = [a for a in algorithms if a != "sa"]
-        if bad:
-            keys = ", ".join(f"[sa].{k}" for k in sa_given)
-            raise ValueError(
-                f"{keys} only supported with algorithm "
-                f"'sa' (got: {bad})"
-            )
-
-    # ── Expand Cartesian product → JobConfigs ─────────────────────────────
-    jobs: list[JobConfig] = []
-    for combo in itertools.product(
-        dimensions,
-        seeds,
-        algorithms,
-        spaces,
-        n_agents_l,
-        iterations_l,
-        ipf_l,
-        fps_l,
-        dot_sizes,
-        inertias,
-        variants,
-        gammas,
-        beta0s,
-        fa_alphas,
-        levy_exps,
-        sd_steps,
-        sd_alphas,
-        sa_t0s,
-        sa_cooling_rates,
-        sa_steps,
-    ):
-        (
-            dims, seed, algo, space, n_agents,
-            iters, ipf, fps, dot, w,
-            variant, gamma, beta0, alpha, levy_exp,
-            sd_step, sd_alpha,
-            sa_t0, sa_cooling_rate, sa_step,
-        ) = combo
-        resolved_seed: int = (
-            random.randint(0, 2**31 - 1) if seed is None else seed
-        )
-        jobs.append(JobConfig(
-            dimensions=dims,
-            seed=resolved_seed,
-            algorithm=algo,
-            space=space,
-            n_agents=n_agents,
-            iterations=iters,
-            iterations_per_frame=ipf,
-            fps=fps,
-            dot_size=dot,
-            inertia=w,
-            variant=variant,
-            gamma=gamma,
-            beta0=beta0,
-            alpha=alpha,
-            levy_exp=levy_exp,
-            sd_step=sd_step,
-            sd_alpha=sd_alpha,
-            sa_t0=sa_t0,
-            sa_cooling_rate=sa_cooling_rate,
-            sa_step=sa_step,
-            detailed=detailed,
-            show_attractions=show_attractions,
-            frames=frames,
-            frames_png=frames_png,
-            use_gifsicle=use_gifsicle,
-            output_prefix=output_prefix,
-            output_dir=output_dir,
-        ))
-
-    return jobs
+    return _build_jobs(
+        dimensions=dimensions,
+        seeds=seeds,
+        algorithms=algorithms,
+        spaces=spaces,
+        n_agents_l=n_agents_l,
+        iterations_l=iterations_l,
+        ipf_l=ipf_l,
+        fps_l=fps_l,
+        dot_sizes=dot_sizes,
+        inertias=inertias,
+        variants=variants,
+        gammas=gammas,
+        beta0s=beta0s,
+        fa_alphas=fa_alphas,
+        levy_exps=levy_exps,
+        sd_steps=sd_steps,
+        sd_alphas=sd_alphas,
+        sa_t0s=sa_t0s,
+        sa_cooling_rates=sa_cooling_rates,
+        sa_steps=sa_steps,
+        detailed=detailed,
+        show_attractions=show_attractions,
+        frames=frames,
+        frames_png=frames_png,
+        use_gifsicle=use_gifsicle,
+        output_prefix=output_prefix,
+        output_dir=output_dir,
+    )
