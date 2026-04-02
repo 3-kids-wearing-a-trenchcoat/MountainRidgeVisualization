@@ -3,61 +3,10 @@
 import argparse
 import itertools
 import random
-from dataclasses import dataclass
+import sys
 from pathlib import Path
 
-
-@dataclass
-class JobConfig:
-    """Parameters for a single GIF-generation run."""
-
-    dimensions: tuple[int, int]
-    seed: int
-    algorithm: str
-    space: str
-    n_agents: int
-    iterations: int
-    iterations_per_frame: int
-    fps: int
-    dot_size: int | None
-    inertia: float | None
-    variant: str | None
-    gamma: float | None
-    beta0: float | None
-    alpha: float | None
-    levy_exp: float | None
-    sd_step: float | None
-    sd_alpha: float | None
-    sa_t0: float | None
-    sa_cooling_rate: float | None
-    sa_step: float | None
-    detailed: bool
-    show_attractions: bool
-    frames: bool
-    frames_png: bool
-    use_gifsicle: bool
-    output_prefix: str
-    output_dir: Path
-
-
-def _parse_dims(value: str) -> tuple[int, int]:
-    """Parse a *WxH* string into an integer (width, height) pair."""
-    parts = value.lower().split("x")
-    if len(parts) != 2:
-        raise argparse.ArgumentTypeError(
-            f"Dimensions must be in WxH format, got {value!r}"
-        )
-    try:
-        w, h = int(parts[0]), int(parts[1])
-    except ValueError:
-        raise argparse.ArgumentTypeError(
-            f"Dimension values must be integers, got {value!r}"
-        )
-    if w < 2 or h < 2:
-        raise argparse.ArgumentTypeError(
-            f"Dimensions must be at least 2x2, got {value!r}"
-        )
-    return w, h
+from mountain_ridge.config_file import JobConfig, _parse_dims, load_config
 
 
 def parse_jobs() -> list[JobConfig]:
@@ -100,7 +49,7 @@ def parse_jobs() -> list[JobConfig]:
         help="Search space function (default: ridge)",
     )
     parser.add_argument(
-        "--n-agents", "-n",
+        "--n_agents", "-n",
         nargs="+",
         type=int,
         default=[20],
@@ -117,7 +66,7 @@ def parse_jobs() -> list[JobConfig]:
         help="Number of iterations (default: 100)",
     )
     parser.add_argument(
-        "--iterations-per-frame",
+        "--iterations_per_frame",
         nargs="+",
         type=int,
         default=[5],
@@ -134,7 +83,7 @@ def parse_jobs() -> list[JobConfig]:
         help="Output GIF frames per second (default: 10)",
     )
     parser.add_argument(
-        "--dot-size",
+        "--dot_size",
         nargs="+",
         type=int,
         default=None,
@@ -201,7 +150,7 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
-        "--levy-exp",
+        "--levy_exp",
         nargs="+",
         type=float,
         default=None,
@@ -214,7 +163,7 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
-        "--sd-step",
+        "--sd_step",
         nargs="+",
         type=float,
         default=None,
@@ -227,7 +176,7 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
-        "--sd-alpha",
+        "--sd_alpha",
         nargs="+",
         type=float,
         default=None,
@@ -240,7 +189,7 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
-        "--sa-t0",
+        "--sa_t0",
         nargs="+",
         type=float,
         default=None,
@@ -252,7 +201,7 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
-        "--sa-cooling-rate",
+        "--sa_cooling_rate",
         nargs="+",
         type=float,
         default=None,
@@ -264,7 +213,7 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
-        "--sa-step",
+        "--sa_step",
         nargs="+",
         type=float,
         default=None,
@@ -276,7 +225,7 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
-        "--no-gifsicle",
+        "--no_gifsicle",
         action="store_true",
         default=False,
         dest="no_gifsicle",
@@ -294,7 +243,7 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
-        "--show-attractions",
+        "--show_attractions",
         action="store_true",
         default=False,
         dest="show_attractions",
@@ -323,21 +272,53 @@ def parse_jobs() -> list[JobConfig]:
         ),
     )
     parser.add_argument(
-        "--output-prefix", "-o",
+        "--output_prefix", "-o",
         default="out",
         metavar="PREFIX",
         dest="output_prefix",
         help="Output filename prefix (default: out)",
     )
     parser.add_argument(
-        "--output-dir",
+        "--output_dir",
         default=".",
         metavar="DIR",
         dest="output_dir",
         help="Output directory (default: current directory)",
     )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help=(
+            "Load parameters from a TOML file. "
+            "Mutually exclusive with all other flags."
+        ),
+    )
 
     args = parser.parse_args()
+
+    if args.config is not None:
+        other: list[str] = []
+        skip_next = False
+        for token in sys.argv[1:]:
+            if skip_next:
+                skip_next = False
+                continue
+            if token == "--config":
+                skip_next = True
+                continue
+            if token.startswith("--config="):
+                continue
+            if token.startswith("-"):
+                other.append(token)
+        if other:
+            parser.error(
+                "--config cannot be combined with other flags: "
+                + " ".join(other)
+            )
+        return load_config(args.config)
+
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -358,7 +339,7 @@ def parse_jobs() -> list[JobConfig]:
             ("--gamma",   args.gamma),
             ("--beta0",   args.beta0),
             ("--alpha",   args.alpha),
-            ("--levy-exp", args.levy_exp),
+            ("--levy_exp", args.levy_exp),
         ] if val is not None
     ]
     if fa_flags_given:
@@ -371,8 +352,8 @@ def parse_jobs() -> list[JobConfig]:
 
     sd_flags_given = [
         name for name, val in [
-            ("--sd-step",  args.sd_step),
-            ("--sd-alpha", args.sd_alpha),
+            ("--sd_step",  args.sd_step),
+            ("--sd_alpha", args.sd_alpha),
         ] if val is not None
     ]
     if sd_flags_given:
@@ -385,9 +366,9 @@ def parse_jobs() -> list[JobConfig]:
 
     sa_flags_given = [
         name for name, val in [
-            ("--sa-t0",           args.sa_t0),
-            ("--sa-cooling-rate", args.sa_cooling_rate),
-            ("--sa-step",         args.sa_step),
+            ("--sa_t0",           args.sa_t0),
+            ("--sa_cooling_rate", args.sa_cooling_rate),
+            ("--sa_step",         args.sa_step),
         ] if val is not None
     ]
     if sa_flags_given:

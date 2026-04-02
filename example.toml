@@ -1,0 +1,178 @@
+# example.toml — annotated config file for MountainRidgeVisualization
+#
+# Run with:
+#   python -m mountain_ridge --config example.toml
+#
+# BATCH MODE
+# ----------
+# Any job parameter can be a single value or a list:
+#   n_agents = 20          → one job
+#   n_agents = [10, 20, 40] → three jobs, one per value
+#
+# When multiple parameters are lists the program runs every combination
+# (Cartesian product).  For example, 2 algorithms × 3 seeds = 6 jobs.
+#
+# An empty list [] or an omitted key means "use the program default".
+
+# ── Output ────────────────────────────────────────────────────────────────────
+
+# Prefix for output filenames.  Each job is saved as <prefix>_NN.gif,
+# where NN increments automatically to avoid overwriting existing files.
+output_prefix = "example"
+
+# Directory to write output into.  Created automatically if absent.
+output_dir = "output/"
+
+# ── Display flags ─────────────────────────────────────────────────────────────
+# These are plain booleans and apply uniformly to every job in this file.
+
+# Append a statistics bar (iteration, best height, global min) to every frame.
+detailed = false
+
+# Draw arrows from each agent toward the positions currently attracting it.
+# Arrow length encodes influence strength; colour encodes the kind of force.
+# See README § Attraction arrows for the full colour key.
+show_attractions = false
+
+# Write individual frame images instead of an animated GIF.
+# Default format is JPEG.  Set png = true below to use lossless PNG instead.
+frames = false
+
+# Write frames as PNG rather than JPEG.  Only has effect when frames = true.
+png = false
+
+# Disable gifsicle post-processing even when gifsicle is installed.
+# Leave false to allow automatic delta-frame optimisation (typically 50–80%
+# smaller GIFs with no change to visual quality).
+no_gifsicle = false
+
+# ── Search space ──────────────────────────────────────────────────────────────
+
+# Grid dimensions as "WxH" strings.  Larger grids are slower but look better.
+# List → one job per dimension, e.g. a quick preview vs. a full-res render.
+dimensions = ["150x150"]
+
+# Available spaces: ridge, gaussian, rastrigin, ackley, multiwell, deceptive
+# Listing more than one runs every algorithm below on each space.
+space = ["ridge"]
+
+# ── Reproducibility ───────────────────────────────────────────────────────────
+
+# Integer seed that controls the search space layout, agent starting positions,
+# and all stochastic behaviour.  The same seed always produces identical output.
+# List → one job per seed (useful for checking how sensitive an algorithm is
+#         to initial conditions).
+# Empty list or omit this key → a fresh random seed is chosen for each job.
+seed = [42]
+
+# ── Algorithm ─────────────────────────────────────────────────────────────────
+
+# Which optimisation algorithm to run.
+# Available: pso (Particle Swarm), fa (Firefly), sd (Steepest Descent),
+#            sa (Simulated Annealing)
+# Listing more than one produces one GIF per algorithm — useful for
+# side-by-side comparisons on the same seed and space:
+#   algorithm = ["pso", "fa", "sd", "sa"]
+# When batching across multiple algorithms, leave the algorithm-specific
+# sections below empty ([] or omit the keys); their parameters only apply
+# to their own algorithm type, and setting a concrete value while another
+# algorithm is also listed will raise a validation error.
+algorithm = ["pso"]
+
+# ── Swarm parameters ──────────────────────────────────────────────────────────
+
+# Number of agents (particles / fireflies / walkers) in the swarm.
+n_agents = [20]
+
+# Total number of simulation steps to run.
+iterations = [120]
+
+# How many simulation steps pass between captured frames.
+# Lower values → smoother animation but larger files.
+# Higher values → choppier but smaller files and faster encoding.
+iterations_per_frame = [5]
+
+# Playback speed of the output GIF in frames per second.
+fps = [12]
+
+# Agent dot radius in pixels.
+# Empty list or omit → auto-scaled to max(2, round(min(W,H) / 35)).
+dot_size = []
+
+# ── PSO-specific parameters ───────────────────────────────────────────────────
+# Only consulted when algorithm includes "pso".  Ignored otherwise.
+
+[pso]
+# Inertia weight w — the fraction of the previous velocity carried into the
+# next step.  0.0 means no momentum (agents respond instantly to attraction
+# forces); 1.0 means full momentum (agents resist direction changes).
+# Typical useful range: [0.0, 0.9].
+inertia = [0.3]
+
+# ── FA-specific parameters ────────────────────────────────────────────────────
+# Only consulted when algorithm includes "fa".  Ignored otherwise.
+
+[fa]
+# Random walk distribution used for each firefly's stochastic perturbation.
+# "brownian" — bounded uniform step, good general-purpose default.
+# "levy"     — heavy-tailed Lévy flight; occasional large jumps help escape
+#              local minima at the cost of more erratic trajectories.
+# e.g. variant = ["brownian"]
+variant = []
+
+# Light absorption coefficient γ.  Controls how quickly attractiveness decays
+# with distance.  Higher γ → shorter attraction range → more diversity.
+# Empty list or omit → auto-scaled to 1 / min(W,H)².
+gamma = []
+
+# Maximum attractiveness β₀ at distance zero.
+# e.g. beta0 = [1.0]
+beta0 = []
+
+# Random walk step size α.
+# Empty list or omit → auto-scaled to 0.05 · min(W,H).
+alpha = []
+
+# Lévy exponent λ (only used when variant = "levy").
+# Controls the tail weight of the distribution.  Range [1.0, 2.0].
+# Values closer to 1 produce heavier tails and more frequent large jumps.
+# e.g. levy_exp = [1.5]
+levy_exp = []
+
+# ── SD-specific parameters ────────────────────────────────────────────────────
+# Only consulted when algorithm includes "sd".  Ignored otherwise.
+
+[sd]
+# Initial step length for the backtracking line search.  The agent halves this
+# value repeatedly until a strict height decrease is found or the minimum
+# threshold (1e-4) is reached.
+# Empty list or omit → auto-scaled to 0.1 · min(W,H).
+step = []
+
+# Random perturbation amplitude added every iteration regardless of gradient.
+# 0.0 → purely deterministic steepest descent (agents stall at local minima).
+# Larger values give agents a chance to escape shallow minima.
+# e.g. alpha = [0.0]
+alpha = []
+
+# ── SA-specific parameters ────────────────────────────────────────────────────
+# Only consulted when algorithm includes "sa".  Ignored otherwise.
+
+[sa]
+# Initial temperature T₀.  At high temperature almost any move is accepted,
+# enabling broad exploration.  The default derives from the search space:
+#   T₀ = 0.3 · (f_max − f_min)
+# so that a move worsening the objective by 30 % of the total range is still
+# accepted with probability e⁻¹ ≈ 37 % at the start.
+# Empty list or omit → use the auto-derived default.
+t0 = []
+
+# Geometric cooling factor applied each iteration: T ← cooling_rate · T.
+# Values closer to 1.0 cool slowly (more exploration, longer convergence).
+# Values closer to 0.0 cool quickly (faster convergence, risk of getting stuck).
+# e.g. cooling_rate = [0.95]
+cooling_rate = []
+
+# Half-width of the uniform neighbour proposal: candidate = current + U(−s, s)².
+# Empty list or omit → auto-scaled to 0.1 · min(W,H).
+step = []

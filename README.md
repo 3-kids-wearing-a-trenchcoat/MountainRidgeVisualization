@@ -11,7 +11,7 @@ By default, the program writes an animated GIF. Pass `--frames` to instead
 write each captured frame as a separate image file (see
 [Frames mode](#frames-mode)).
 
-One frame is captured at the start and then every `--iterations-per-frame`
+One frame is captured at the start and then every `--iterations_per_frame`
 steps.
 
 ### Height map
@@ -34,7 +34,7 @@ height, running from low to high:
 | White diamond | True global minimum — every grid cell whose height is exactly equal to the lowest value in the space. Static; does not move. Multiple diamonds appear when the space has more than one equally-deep minimum. |
 | Yellow circle (outlined) | Best position found by the swarm so far. Updates as the swarm improves. |
 | Coloured circles (outlined) | Current positions of all agents. Colour depends on the algorithm — see below. |
-| Arrows (optional) | When `--show-attractions` is enabled, arrows are drawn from each agent toward its attraction points. See [Attraction arrows](#attraction-arrows). |
+| Arrows (optional) | When `--show_attractions` is enabled, arrows are drawn from each agent toward its attraction points. See [Attraction arrows](#attraction-arrows). |
 
 #### Agent colours by algorithm
 
@@ -52,7 +52,7 @@ The goal of each algorithm is to drive the yellow circle onto the white diamond.
 
 ### Attraction arrows
 
-Pass `--show-attractions` to draw arrows from each agent toward the positions
+Pass `--show_attractions` to draw arrows from each agent toward the positions
 that are currently influencing its movement. Arrows are rendered beneath the
 agent dots so agents always appear on top.
 
@@ -107,7 +107,7 @@ across all frames, this typically reduces file size by 50–80% with no change
 to visual quality or frame count.
 
 If `gifsicle` is not found, a warning is printed once and the program
-continues normally, producing a valid (unoptimised) GIF. Pass `--no-gifsicle`
+continues normally, producing a valid (unoptimised) GIF. Pass `--no_gifsicle`
 to disable gifsicle entirely and suppress the warning.
 
 ## Usage
@@ -136,29 +136,30 @@ The counter `NN` increments automatically to avoid overwriting existing files.
 | `--seed`                 | `-s`  | `int`    | *(random)* | Random seed for the search space and agents. Omit for a fresh random seed per job                                                                                                                               |
 | `--algorithm`            | `-a`  | `string` | `pso`      | Optimization algorithm to use. Available: `pso`, `fa`, `sd`, `sa` (Particle Swarm Optimization, Firefly Algorithm, Steepest Descent, and Simulated Annealing respectively)                                     |
 | `--space`                |       | `string` | `ridge`    | Search space function. Available: `ridge`, `gaussian`, `rastrigin`, `ackley`, `multiwell`, `deceptive`                                                                                                          |
-| `--n-agents`             | `-n`  | `int`    | `20`       | Number of agents in the swarm                                                                                                                                                                                   |
+| `--n_agents`             | `-n`  | `int`    | `20`       | Number of agents in the swarm                                                                                                                                                                                   |
 | `--iterations`           | `-i`  | `int`    | `100`      | Total number of simulation steps                                                                                                                                                                                |
-| `--iterations-per-frame` |       | `int`    | `5`        | Simulation steps between captured frames                                                                                                                                                                        |
+| `--iterations_per_frame` |       | `int`    | `5`        | Simulation steps between captured frames                                                                                                                                                                        |
 | `--fps`                  |       | `int`    | `10`       | Playback speed of the output GIF (frames per second)                                                                                                                                                            |
 | `--inertia`              |       | `float`  | `0.0`      | **PSO only.** Inertia weight `w` — scales how much of the previous velocity carries over each iteration. Typical range `[0, 1]`. Error if used with a non-PSO algorithm.                                        |
 | `--variant`              |       | `string` | `brownian` | **FA only.** Random walk distribution: `brownian` (bounded uniform step, `U(−0.5, 0.5)`) or `levy` (heavy-tailed Lévy flight, same typical scale as `brownian` but with occasional large jumps; better at escaping local minima). Error if used with a non-FA algorithm. |
 | `--gamma`                |       | `float`  | *(auto)*   | **FA only.** Light absorption coefficient `γ` — controls how quickly attractiveness decays with distance. Higher values shorten attraction range and preserve diversity. Default scales with the grid: `1 / min(W, H)²`. Error if used with a non-FA algorithm. |
 | `--beta0`                |       | `float`  | `1.0`      | **FA only.** Maximum attractiveness `β₀` at distance zero. Error if used with a non-FA algorithm.                                                                                                               |
 | `--alpha`                |       | `float`  | *(auto)*   | **FA only.** Random walk step size `α`. Default scales with the grid: `0.05 · min(W, H)`. Error if used with a non-FA algorithm.                                                                                |
-| `--levy-exp`             |       | `float`  | `1.5`      | **FA only.** Lévy exponent `λ` — controls tail weight of the Lévy distribution. Only used when `--variant levy`. Typical range `[1.0, 2.0]`. Error if used with a non-FA algorithm.                             |
-| `--sd-step`              |       | `float`  | *(auto)*   | **SD only.** Initial step length for backtracking line search. Default scales with the grid: `0.1 · min(W, H)`. Error if used with a non-SD algorithm.                                                          |
-| `--sd-alpha`             |       | `float`  | `0.0`      | **SD only.** Random perturbation amplitude `α` added unconditionally every iteration. `0.0` gives strictly deterministic steepest descent. Error if used with a non-SD algorithm.                               |
-| `--sa-t0`                |       | `float`  | *(auto)*   | **SA only.** Initial temperature `T₀`. Default: `0.3 · (f_max − f_min)` of the search space. Error if used with a non-SA algorithm.                                                                            |
-| `--sa-cooling-rate`      |       | `float`  | `0.95`     | **SA only.** Geometric cooling factor `α` applied each iteration: `T ← α · T`. Error if used with a non-SA algorithm.                                                                                          |
-| `--sa-step`              |       | `float`  | *(auto)*   | **SA only.** Half-width of the uniform neighbour proposal step. Default scales with the grid: `0.1 · min(W, H)`. Error if used with a non-SA algorithm.                                                         |
-| `--dot-size`             |       | `int`    | *(auto)*   | Agent dot radius in pixels. Omit to scale automatically: `max(2, round(min(W, H) / 35))`                                                                                                                        |
-| `--show-attractions`     |       | flag     | off        | Draw arrows from each agent toward its attraction points. Arrow length encodes influence strength; colour encodes kind. See [Attraction arrows](#attraction-arrows).                                              |
+| `--levy_exp`             |       | `float`  | `1.5`      | **FA only.** Lévy exponent `λ` — controls tail weight of the Lévy distribution. Only used when `--variant levy`. Typical range `[1.0, 2.0]`. Error if used with a non-FA algorithm.                             |
+| `--sd_step`              |       | `float`  | *(auto)*   | **SD only.** Initial step length for backtracking line search. Default scales with the grid: `0.1 · min(W, H)`. Error if used with a non-SD algorithm.                                                          |
+| `--sd_alpha`             |       | `float`  | `0.0`      | **SD only.** Random perturbation amplitude `α` added unconditionally every iteration. `0.0` gives strictly deterministic steepest descent. Error if used with a non-SD algorithm.                               |
+| `--sa_t0`                |       | `float`  | *(auto)*   | **SA only.** Initial temperature `T₀`. Default: `0.3 · (f_max − f_min)` of the search space. Error if used with a non-SA algorithm.                                                                            |
+| `--sa_cooling_rate`      |       | `float`  | `0.95`     | **SA only.** Geometric cooling factor `α` applied each iteration: `T ← α · T`. Error if used with a non-SA algorithm.                                                                                          |
+| `--sa_step`              |       | `float`  | *(auto)*   | **SA only.** Half-width of the uniform neighbour proposal step. Default scales with the grid: `0.1 · min(W, H)`. Error if used with a non-SA algorithm.                                                         |
+| `--dot_size`             |       | `int`    | *(auto)*   | Agent dot radius in pixels. Omit to scale automatically: `max(2, round(min(W, H) / 35))`                                                                                                                        |
+| `--show_attractions`     |       | flag     | off        | Draw arrows from each agent toward its attraction points. Arrow length encodes influence strength; colour encodes kind. See [Attraction arrows](#attraction-arrows).                                              |
 | `--detailed`             |       | flag     | off        | Append a statistics bar (150 px wide) to the right of every frame. See [Detailed output](#detailed-output).                                                                                                     |
 | `--frames`               |       | flag     | off        | Write each frame as a separate image file instead of an animated GIF. See [Frames mode](#frames-mode).                                                                                                          |
 | `--png`                  |       | flag     | off        | **Requires `--frames`.** Write frames as lossless PNG instead of JPEG. Error if used without `--frames`.                                                                                                        |
-| `--no-gifsicle`          |       | flag     | off        | Disable `gifsicle` post-processing and suppress the "not found" warning.                                                                                                                                        |
-| `--output-prefix`        | `-o`  | `string` | `out`      | Prefix for output filenames (`<prefix>_NN.gif` or `<prefix>_NN/`)                                                                                                                                              |
-| `--output-dir`           |       | `path`   | `.`        | Directory to write output into (created if absent)                                                                                                                                                              |
+| `--no_gifsicle`          |       | flag     | off        | Disable `gifsicle` post-processing and suppress the "not found" warning.                                                                                                                                        |
+| `--output_prefix`        | `-o`  | `string` | `out`      | Prefix for output filenames (`<prefix>_NN.gif` or `<prefix>_NN/`)                                                                                                                                              |
+| `--output_dir`           |       | `path`   | `.`        | Directory to write output into (created if absent)                                                                                                                                                              |
+| `--config`               |       | `path`   | *(none)*   | Load all parameters from a TOML file. Mutually exclusive with all other flags. See [Config file](#config-file).                                                                                                 |
 
 ### Available search spaces
 
@@ -183,12 +184,12 @@ point queries, the gradient is estimated by central finite differences with a
 fixed perturbation of 1 grid unit.
 
 **Step size** — each iteration uses backtracking line search: the agent
-attempts a step of size `--sd-step` in the descent direction and halves it
+attempts a step of size `--sd_step` in the descent direction and halves it
 repeatedly (by factor 0.5) until either a strict height decrease is achieved
 or the step falls below a minimum threshold (`1e-4`), at which point the
 move is cancelled and the agent stays put (local minimum).
 
-**Random perturbation** — `--sd-alpha` adds an unconditional random
+**Random perturbation** — `--sd_alpha` adds an unconditional random
 displacement `α · U(−0.5, 0.5)²` every iteration, regardless of whether the
 agent is at a local minimum. When `α = 0` (the default) the algorithm is
 strictly deterministic. Increasing `α` gives agents a chance to escape
@@ -206,7 +207,7 @@ in structure to SD, but with a probabilistic acceptance rule instead of a
 strict descent rule.
 
 Each iteration an agent proposes a random **neighbour** position by adding a
-uniform displacement `α · U(−0.5, 0.5)²` (scaled by `--sa-step`) to its
+uniform displacement `α · U(−0.5, 0.5)²` (scaled by `--sa_step`) to its
 current position. The move is always accepted if it improves the objective.
 Worsening moves are accepted with probability `exp(−Δf / T)`, where `T` is the
 current temperature and `Δf` is the increase in height. After each iteration
@@ -260,7 +261,7 @@ content (smooth terrain gradients with small solid-colour agent markers).
 Pass `--png` to write lossless PNG files instead. `--png` requires `--frames`
 and will produce an error if used alone.
 
-`--fps` and `--no-gifsicle` have no effect in frames mode.
+`--fps` and `--no_gifsicle` have no effect in frames mode.
 
 **Example:**
 ```bash
@@ -273,7 +274,7 @@ python -m mountain_ridge --frames --png --seed 42 --iterations 100
 
 ### Batch mode
 
-Any flag marked with a type above (except `--output-prefix` and `--output-dir`)
+Any flag marked with a type above (except `--output_prefix` and `--output_dir`)
 accepts multiple space-separated values. When one or more flags receive multiple
 values, the program produces a GIF for **every combination** (cartesian product)
 of the provided values.
@@ -286,13 +287,50 @@ Produces `out_00.gif`, `out_01.gif`, `out_02.gif`, one per seed.
 
 **Example — all combinations of seeds and agent counts:**
 ```
-python -m mountain_ridge --seed 1 2 --n-agents 10 20
+python -m mountain_ridge --seed 1 2 --n_agents 10 20
 ```
 Produces 4 GIFs: `(seed=1, n=10)`, `(seed=1, n=20)`, `(seed=2, n=10)`,
 `(seed=2, n=20)`.
 
 In batch mode a nested progress bar is shown: the outer bar tracks overall job
 progress and the inner bar tracks iterations within the current job.
+
+### Config file
+
+Pass `--config path/to/file.toml` to load all parameters from a TOML file
+instead of the command line. `--config` is mutually exclusive with all other
+flags.
+
+The file supports every parameter listed in [Flags](#flags), using the same
+names without the leading `--` (e.g. `--n_agents` → `n_agents`).
+Algorithm-specific parameters belong in a sub-table named after the algorithm
+(`[pso]`, `[fa]`, `[sd]`, `[sa]`).
+
+**Batch mode** works the same way as on the CLI: any parameter can be a list.
+A single value produces one job; a list produces one job per value; multiple
+lists produce the Cartesian product. An empty list `[]` or a missing key both
+mean "use the default". `seed = []` (or omitting `seed`) assigns one random
+seed per job.
+
+The following keys are **not** lists and apply to all jobs uniformly:
+`output_prefix`, `output_dir`, `detailed`, `show_attractions`, `frames`,
+`png`, `no_gifsicle`.
+
+**Example:**
+
+```toml
+output_prefix = "sweep"
+output_dir    = "results/"
+detailed      = true
+
+dimensions = ["200x200"]
+algorithm  = ["pso", "fa"]   # two algorithms → one job each (2 total)
+seed       = [1, 2, 3]       # × 3 seeds → 6 jobs total
+n_agents   = [20]
+
+[fa]
+variant = ["levy"]
+```
 
 ### Examples
 
@@ -304,22 +342,22 @@ python -m mountain_ridge --seed 42 --dimensions 200x200 --iterations 200
 python -m mountain_ridge --algorithm pso fa --seed 99 --space multiwell
 
 # Batch: sweep over several seeds, save to a dedicated folder
-python -m mountain_ridge --seed 10 20 30 40 --output-dir results --output-prefix sweep
+python -m mountain_ridge --seed 10 20 30 40 --output_dir results --output_prefix sweep
 
 # Show attraction arrows (PSO: cyan=pbest, magenta=gbest)
-python -m mountain_ridge --show-attractions --seed 42 --dimensions 300x300
+python -m mountain_ridge --show_attractions --seed 42 --dimensions 300x300
 
 # Show attraction arrows for FA
-python -m mountain_ridge --algorithm fa --show-attractions --seed 42 --dimensions 300x300
+python -m mountain_ridge --algorithm fa --show_attractions --seed 42 --dimensions 300x300
 
 # Steepest descent (pure, no randomness)
 python -m mountain_ridge --algorithm sd --seed 42 --dimensions 200x200
 
 # Steepest descent with random perturbation to escape shallow minima
-python -m mountain_ridge --algorithm sd --sd-alpha 2.0 --seed 42 --dimensions 200x200
+python -m mountain_ridge --algorithm sd --sd_alpha 2.0 --seed 42 --dimensions 200x200
 
 # SD with gradient arrows — shows each agent's descent direction and slope intensity
-python -m mountain_ridge --algorithm sd --show-attractions --seed 42 --dimensions 300x300
+python -m mountain_ridge --algorithm sd --show_attractions --seed 42 --dimensions 300x300
 
 # Side-by-side comparison: SD vs PSO on the same seed
 python -m mountain_ridge --algorithm sd pso --seed 42 --dimensions 200x200
@@ -328,7 +366,7 @@ python -m mountain_ridge --algorithm sd pso --seed 42 --dimensions 200x200
 python -m mountain_ridge --algorithm sa --seed 42 --dimensions 200x200
 
 # SA with a slower cooling schedule to explore longer
-python -m mountain_ridge --algorithm sa --sa-cooling-rate 0.99 --seed 42 --dimensions 200x200
+python -m mountain_ridge --algorithm sa --sa_cooling_rate 0.99 --seed 42 --dimensions 200x200
 
 # Side-by-side comparison: SA vs SD on the same seed
 python -m mountain_ridge --algorithm sa sd --seed 42 --dimensions 200x200

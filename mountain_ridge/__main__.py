@@ -5,7 +5,8 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from mountain_ridge.cli import JobConfig, parse_jobs
+from mountain_ridge.cli import parse_jobs
+from mountain_ridge.config_file import JobConfig
 from mountain_ridge.gif_builder import build_frames, build_gif
 from mountain_ridge.search_space.functions import get_space
 from mountain_ridge.swarm.base import Swarm
