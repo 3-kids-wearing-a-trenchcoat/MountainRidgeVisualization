@@ -49,7 +49,7 @@ _ARROW_MAX_LEN_FACTOR: int = 6    # max arrow length = factor × agent_radius
 _ARROW_HEAD_FACTOR: float = 0.3   # arrowhead size = factor × arrow length
 
 # Info bar (detailed output)
-_INFO_BAR_WIDTH: int = 150
+_INFO_BAR_WIDTH: int = 75
 _BAR_BG: tuple[int, int, int] = (20, 20, 20)
 _BAR_LABEL: tuple[int, int, int] = (150, 150, 150)
 _BAR_VALUE: tuple[int, int, int] = (255, 255, 255)
@@ -66,7 +66,7 @@ def _make_info_bar(
     bar = Image.new("RGB", (_INFO_BAR_WIDTH, height), _BAR_BG)
     draw = ImageDraw.Draw(bar)
     font = ImageFont.load_default(size=13)
-    pad = 10
+    pad = 5
     line_h = 18
     gap = 8
     y = pad
