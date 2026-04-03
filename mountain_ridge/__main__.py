@@ -98,7 +98,7 @@ def _run_job(
             kwargs["step_size"] = job.sa_step
     swarm = swarm_cls(**kwargs)  # type: ignore[call-arg]
 
-    show_best = job.algorithm != "sa"
+    show_best = job.algorithm not in ("sa", "sd")
 
     if job.frames:
         output_path.mkdir(parents=True, exist_ok=True)
