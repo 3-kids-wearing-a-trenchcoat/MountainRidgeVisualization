@@ -82,12 +82,16 @@ what other agents are doing:
 |--------|---------|
 | Cyan `(0, 200, 255)` | PSO — cognitive pull toward the agent's personal best (pbest) |
 | Magenta `(220, 0, 220)` | PSO — social pull toward the global best (gbest) |
-| Yellow `(255, 220, 0)` | PSO — inertia (momentum carried over from the previous velocity) |
+| Yellow `(255, 220, 0)` | PSO — inertia (current velocity scaled by `w`; the momentum that will carry into the next step) |
 | Orange `(255, 140, 0)` | FA — attraction toward a brighter (lower-scoring) firefly |
 | Green `(0, 220, 80)` | SD — direction of steepest descent (negative gradient) |
 
-Frame 0 (the initial state before any update) shows no arrows; arrows first
-appear on the next captured frame.
+All arrows show the forces that will act on each agent in the **next**
+iteration, not the forces that produced the current position.
+
+Frame 0 (the initial state before any update) shows arrows for SD and FA
+(computed from the initial positions/gradient); PSO shows no inertia arrow on
+Frame 0 because the initial velocity is zero.
 
 ## Requirements
 

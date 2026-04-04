@@ -182,23 +182,34 @@ class FASwarm(Swarm):
         ]
 
     def get_attractions(self) -> list[list[AttractionVector]]:
-        # Normalise by beta0: weight = beta / beta0.
-        # beta0 is fixed at init, so the same beta value always produces
-        # the same arrow size regardless of frame or which other agents are
-        # present.  This keeps arrows comparable both within a frame and
-        # across frames.  Attractors whose influence falls below 1 % are
-        # omitted to reduce clutter.
+        # Compute upcoming attractions from the current snapshot rather than
+        # stored _last_attractions (which reflect the previous move).  The
+        # snapshot is refreshed at the end of every update(), so it always
+        # reflects current positions/scores.  Normalise by beta0 for
+        # consistent arrow sizes; omit attractors below 1 % influence.
+        snapshot: list[tuple[Position, float]] = (
+            self._shared_memory[_SNAPSHOT_KEY]
+        )
         result: list[list[AttractionVector]] = []
         for agent in self._agents:
             vectors: list[AttractionVector] = []
-            for target, beta in agent._last_attractions:
-                weight = beta / agent._beta0 if agent._beta0 > 0 else 0.0
-                weight = max(0.0, min(1.0, weight))
-                if weight >= 0.01:
-                    vectors.append(AttractionVector(
-                        target=target,
-                        weight=weight,
-                        kind="firefly",
-                    ))
+            my_score = agent.score
+            for pos_j, score_j in snapshot:
+                if score_j < my_score:
+                    diff = np.array(pos_j, dtype=np.float64) - agent._pos
+                    r_sq = float(np.dot(diff, diff))
+                    beta = agent._beta0 * math.exp(
+                        -agent._gamma * r_sq
+                    )
+                    weight = (
+                        beta / agent._beta0 if agent._beta0 > 0 else 0.0
+                    )
+                    weight = max(0.0, min(1.0, weight))
+                    if weight >= 0.01:
+                        vectors.append(AttractionVector(
+                            target=pos_j,
+                            weight=weight,
+                            kind="firefly",
+                        ))
             result.append(vectors)
         return result

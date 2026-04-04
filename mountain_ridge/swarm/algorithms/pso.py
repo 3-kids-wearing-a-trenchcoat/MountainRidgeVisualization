@@ -189,10 +189,11 @@ class PSOSwarm(Swarm):
                     kind="gbest",
                 ))
 
-            inertia_mag = float(np.linalg.norm(agent._last_inertia))
+            upcoming_inertia = agent._w * agent._vel
+            inertia_mag = float(np.linalg.norm(upcoming_inertia))
             if inertia_mag > 0:
                 w_in = min(1.0, inertia_mag / v_max)
-                unit = agent._last_inertia / inertia_mag
+                unit = upcoming_inertia / inertia_mag
                 target_in: Position = (
                     float(pos[0] + unit[0] * 1000.0),
                     float(pos[1] + unit[1] * 1000.0),

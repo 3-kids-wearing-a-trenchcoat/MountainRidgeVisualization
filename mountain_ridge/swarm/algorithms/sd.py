@@ -180,7 +180,7 @@ class SDSwarm(Swarm):
         so the agent with the steepest local slope gets a full-length arrow
         and all others are shown relative to it.
         """
-        grads = [a._last_grad for a in self._agents]
+        grads = [a._gradient() for a in self._agents]
         magnitudes = [float(np.linalg.norm(g)) for g in grads]
         max_mag = max(magnitudes) if any(m > 0 for m in magnitudes) else 1.0
 
