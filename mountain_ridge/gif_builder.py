@@ -258,7 +258,7 @@ def _simulate_frames(
     agent_radius: int,
     global_min: float,
     desc: str,
-    progress_position: int,
+    progress_position: int | None,
     show_attractions: bool = False,
     show_best: bool = True,
 ) -> list[Image.Image]:
@@ -304,6 +304,7 @@ def _simulate_frames(
         unit="iter",
         position=progress_position,
         leave=(progress_position == 0),
+        disable=progress_position is None,
         dynamic_ncols=True,
     ) as bar:
         for i in range(1, n_iterations + 1):
@@ -349,7 +350,7 @@ def build_gif(
     show_attractions: bool = False,
     show_best: bool = True,
     desc: str = "Simulating",
-    progress_position: int = 0,
+    progress_position: int | None = 0,
 ) -> None:
     """Run *swarm* for *n_iterations* and write an animated GIF.
 
@@ -442,7 +443,7 @@ def build_frames(
     show_attractions: bool = False,
     show_best: bool = True,
     desc: str = "Simulating",
-    progress_position: int = 0,
+    progress_position: int | None = 0,
 ) -> int:
     """Run *swarm* and write each captured frame as an individual image.
 

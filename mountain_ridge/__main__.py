@@ -1,6 +1,8 @@
 """Entry point: parse CLI jobs and run each one."""
 
+import multiprocessing
 import shutil
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 from tqdm import tqdm
@@ -48,7 +50,7 @@ def _run_job(
     job: JobConfig,
     output_path: Path,
     use_gifsicle: bool,
-    progress_position: int = 0,
+    progress_position: int | None = 0,
 ) -> int | None:
     """Instantiate space and swarm, run simulation, write output.
 
@@ -137,9 +139,27 @@ def _run_job(
     return None
 
 
+def _assign_output_paths(jobs: list[JobConfig]) -> list[Path]:
+    """Pre-assign one output path per job in the main process.
+
+    Creating placeholder files/directories here prevents filename races
+    when jobs run in parallel.
+    """
+    paths: list[Path] = []
+    for job in jobs:
+        if job.frames:
+            path = _next_frames_dir(job.output_dir, job.output_prefix)
+            path.mkdir(parents=True, exist_ok=True)
+        else:
+            path = _next_output_path(job.output_dir, job.output_prefix)
+            path.touch()
+        paths.append(path)
+    return paths
+
+
 def main() -> None:
     """Parse jobs and run each one."""
-    jobs = parse_jobs()
+    jobs, workers = parse_jobs()
     batch = len(jobs) > 1
 
     use_gifsicle = jobs[0].use_gifsicle
@@ -151,44 +171,75 @@ def main() -> None:
         )
         use_gifsicle = False
 
-    outer: tqdm[JobConfig] = tqdm(
-        jobs,
-        desc="Batch",
-        unit="gif",
-        position=0,
-        leave=True,
-        dynamic_ncols=True,
-        disable=not batch,
-    )
-    with outer:
-        for job in outer:
-            if job.frames:
-                output_path = _next_frames_dir(
-                    job.output_dir, job.output_prefix
+    output_paths = _assign_output_paths(jobs)
+
+    if workers == 1 or not batch:
+        # ── Serial path (original behaviour) ─────────────────────────────
+        outer: tqdm[tuple[JobConfig, Path]] = tqdm(
+            list(zip(jobs, output_paths)),
+            desc="Batch",
+            unit="gif",
+            position=0,
+            leave=True,
+            dynamic_ncols=True,
+            disable=not batch,
+        )
+        with outer:
+            for job, output_path in outer:
+                if job.frames:
+                    tqdm.write(
+                        f"Generating frames in {output_path}/"
+                        f" (seed={job.seed}) ..."
+                    )
+                else:
+                    tqdm.write(
+                        f"Generating {output_path} (seed={job.seed}) ..."
+                    )
+                n_frames = _run_job(
+                    job,
+                    output_path,
+                    use_gifsicle=use_gifsicle,
+                    progress_position=1 if batch else 0,
                 )
-                tqdm.write(
-                    f"Generating frames in {output_path}/"
-                    f" (seed={job.seed}) ..."
-                )
-            else:
-                output_path = _next_output_path(
-                    job.output_dir, job.output_prefix
-                )
-                tqdm.write(
-                    f"Generating {output_path} (seed={job.seed}) ..."
-                )
-            n_frames = _run_job(
-                job,
-                output_path,
-                use_gifsicle=use_gifsicle,
-                progress_position=1 if batch else 0,
-            )
-            if job.frames:
-                tqdm.write(
-                    f"  -> saved {n_frames} frames to {output_path}/"
-                )
-            else:
-                tqdm.write(f"  -> saved {output_path}")
+                if job.frames:
+                    tqdm.write(
+                        f"  -> saved {n_frames} frames to {output_path}/"
+                    )
+                else:
+                    tqdm.write(f"  -> saved {output_path}")
+    else:
+        # ── Parallel path ─────────────────────────────────────────────────
+        tqdm.write(
+            f"Running {len(jobs)} jobs across {workers} worker(s) ..."
+        )
+        outer_p: tqdm[None] = tqdm(
+            total=len(jobs),
+            desc="Batch",
+            unit="gif",
+            position=0,
+            leave=True,
+            dynamic_ncols=True,
+        )
+        _ctx = multiprocessing.get_context("fork")
+        with outer_p, ProcessPoolExecutor(
+            max_workers=workers, mp_context=_ctx
+        ) as pool:
+            future_to_job = {
+                pool.submit(
+                    _run_job, job, path, use_gifsicle, None
+                ): (job, path)
+                for job, path in zip(jobs, output_paths)
+            }
+            for future in as_completed(future_to_job):
+                job, output_path = future_to_job[future]
+                n_frames = future.result()
+                if job.frames:
+                    tqdm.write(
+                        f"  -> saved {n_frames} frames to {output_path}/"
+                    )
+                else:
+                    tqdm.write(f"  -> saved {output_path}")
+                outer_p.update(1)
 
 
 if __name__ == "__main__":

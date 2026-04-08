@@ -2,6 +2,7 @@
 
 import argparse
 import itertools
+import os
 import random
 import tomllib
 from dataclasses import dataclass
@@ -180,7 +181,7 @@ def _build_jobs(
     return jobs
 
 
-def load_config(path: Path) -> list[JobConfig]:
+def load_config(path: Path) -> tuple[list[JobConfig], int]:
     """Load job configurations from a TOML config file."""
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
@@ -204,6 +205,9 @@ def load_config(path: Path) -> list[JobConfig]:
         default: list[object],
     ) -> list[object]:
         return _norm(d.get(key), default)
+
+    # ── Parallel workers ─────────────────────────────────────────────────
+    workers: int = int(data.get("workers", os.cpu_count() or 1))
 
     # ── Output / display flags (single values, not batched) ──────────────
     output_prefix: str = str(data.get("output_prefix", "out"))
@@ -308,7 +312,7 @@ def load_config(path: Path) -> list[JobConfig]:
         _get(sa_s, "step", [None])
     )
 
-    return _build_jobs(
+    jobs = _build_jobs(
         dimensions=dimensions,
         seeds=seeds,
         algorithms=algorithms,
@@ -337,3 +341,4 @@ def load_config(path: Path) -> list[JobConfig]:
         output_prefix=output_prefix,
         output_dir=output_dir,
     )
+    return jobs, workers

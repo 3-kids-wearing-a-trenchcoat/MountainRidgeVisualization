@@ -1,6 +1,7 @@
 """CLI argument parsing and batch job generation."""
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from mountain_ridge.config_file import (
 )
 
 
-def parse_jobs() -> list[JobConfig]:
+def parse_jobs() -> tuple[list[JobConfig], int]:
     """Parse command-line arguments and return one config per GIF job."""
     parser = argparse.ArgumentParser(
         prog="mountain_ridge",
@@ -286,6 +287,16 @@ def parse_jobs() -> list[JobConfig]:
         help="Output directory (default: current directory)",
     )
     parser.add_argument(
+        "--workers", "-w",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Number of parallel worker processes for batch runs "
+            "(default: number of CPU cores). Use 1 to disable parallelism."
+        ),
+    )
+    parser.add_argument(
         "--config",
         type=Path,
         default=None,
@@ -317,7 +328,7 @@ def parse_jobs() -> list[JobConfig]:
                 "--config cannot be combined with other flags: "
                 + " ".join(other)
             )
-        return load_config(args.config)
+        return load_config(args.config)  # returns (jobs, workers)
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -365,7 +376,11 @@ def parse_jobs() -> list[JobConfig]:
         [None] if args.sa_step is None else args.sa_step
     )
 
-    return _build_jobs(
+    workers: int = (
+        args.workers if args.workers is not None
+        else os.cpu_count() or 1
+    )
+    jobs = _build_jobs(
         dimensions=args.dimensions,
         seeds=seeds,
         algorithms=args.algorithm,
@@ -394,3 +409,4 @@ def parse_jobs() -> list[JobConfig]:
         output_prefix=args.output_prefix,
         output_dir=output_dir,
     )
+    return jobs, workers
