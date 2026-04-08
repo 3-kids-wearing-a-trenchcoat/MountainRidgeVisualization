@@ -1,8 +1,11 @@
 """Entry point: parse CLI jobs and run each one."""
 
 import multiprocessing
+import os
+import queue as _queue
 import shutil
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from collections.abc import Callable
+from concurrent.futures import ProcessPoolExecutor, wait as _futures_wait
 from pathlib import Path
 
 from tqdm import tqdm
@@ -24,6 +27,10 @@ _ALGORITHMS: dict[str, type[Swarm]] = {
     "sa": SASwarm,
     "sd": SDSwarm,
 }
+
+# Shared progress queue for parallel runs.  Set in main() before the pool
+# is created so forked workers inherit it without pickling.
+_progress_queue: multiprocessing.Queue | None = None  # type: ignore[type-arg]
 
 
 def _next_output_path(output_dir: Path, prefix: str) -> Path:
@@ -51,11 +58,22 @@ def _run_job(
     output_path: Path,
     use_gifsicle: bool,
     progress_position: int | None = 0,
+    job_id: int = 0,
 ) -> int | None:
     """Instantiate space and swarm, run simulation, write output.
 
     Returns the number of frames written when in frames mode, else None.
     """
+    on_progress: Callable[[int, int], None] | None = None
+    if _progress_queue is not None:
+        _pid = os.getpid()
+        _desc = output_path.name
+        _every = max(1, job.iterations_per_frame)
+
+        def on_progress(i: int, total: int) -> None:
+            if i == 0 or i % _every == 0 or i == total:
+                _progress_queue.put((_pid, job_id, i, total, _desc))
+
     space_fn, grid = get_space(job.space, job.seed, job.dimensions)
 
     swarm_cls = _ALGORITHMS.get(job.algorithm)
@@ -118,6 +136,7 @@ def _run_job(
             show_best=show_best,
             desc=output_path.name,
             progress_position=progress_position,
+            on_progress=on_progress,
         )
 
     build_gif(
@@ -135,6 +154,7 @@ def _run_job(
         show_best=show_best,
         desc=output_path.name,
         progress_position=progress_position,
+        on_progress=on_progress,
     )
     return None
 
@@ -212,7 +232,51 @@ def main() -> None:
         tqdm.write(
             f"Running {len(jobs)} jobs across {workers} worker(s) ..."
         )
-        outer_p: tqdm[None] = tqdm(
+
+        # Per-worker progress bars live at positions 1..N; the summary
+        # bar is at position 0.  Bars are created lazily on first contact
+        # from each worker PID and reused if that worker runs a second job.
+        global _progress_queue
+        q: multiprocessing.Queue = multiprocessing.Queue()  # type: ignore[type-arg]
+        _progress_queue = q  # inherited by forked workers; not pickled
+        pid_to_bar: dict[int, tqdm] = {}
+        pid_to_job_id: dict[int, int] = {}
+        job_id_to_pid: dict[int, int] = {}
+        next_pos: list[int] = [1]  # mutable so the closure can increment it
+
+        def _get_bar(
+            pid: int, job_id: int, total: int, desc: str
+        ) -> tqdm:
+            if pid not in pid_to_bar:
+                bar: tqdm = tqdm(
+                    total=total,
+                    desc=desc,
+                    unit="iter",
+                    position=next_pos[0],
+                    leave=True,
+                    dynamic_ncols=True,
+                )
+                next_pos[0] += 1
+                pid_to_bar[pid] = bar
+            elif pid_to_job_id.get(pid) != job_id:
+                # Same worker process, new job — reset the existing bar.
+                pid_to_bar[pid].reset(total=total)
+                pid_to_bar[pid].set_description(desc)
+            pid_to_job_id[pid] = job_id
+            job_id_to_pid[job_id] = pid
+            return pid_to_bar[pid]
+
+        def _drain_queue() -> None:
+            while True:
+                try:
+                    pid, jid, i, total, desc = q.get_nowait()
+                except _queue.Empty:
+                    break
+                bar = _get_bar(pid, jid, total, desc)
+                bar.n = i
+                bar.refresh()
+
+        summary: tqdm[None] = tqdm(
             total=len(jobs),
             desc="Batch",
             unit="gif",
@@ -221,25 +285,43 @@ def main() -> None:
             dynamic_ncols=True,
         )
         _ctx = multiprocessing.get_context("fork")
-        with outer_p, ProcessPoolExecutor(
+        with summary, ProcessPoolExecutor(
             max_workers=workers, mp_context=_ctx
         ) as pool:
-            future_to_job = {
+            future_to_info: dict = {
                 pool.submit(
-                    _run_job, job, path, use_gifsicle, None
-                ): (job, path)
-                for job, path in zip(jobs, output_paths)
+                    _run_job, job, path, use_gifsicle, None, jid
+                ): (job, path, jid)
+                for jid, (job, path) in enumerate(zip(jobs, output_paths))
             }
-            for future in as_completed(future_to_job):
-                job, output_path = future_to_job[future]
-                n_frames = future.result()
-                if job.frames:
-                    tqdm.write(
-                        f"  -> saved {n_frames} frames to {output_path}/"
-                    )
-                else:
-                    tqdm.write(f"  -> saved {output_path}")
-                outer_p.update(1)
+            pending = set(future_to_info)
+            while True:
+                _drain_queue()
+                if not pending:
+                    break
+                done, pending = _futures_wait(pending, timeout=0.1)
+                _drain_queue()
+                for future in done:
+                    job, output_path, jid = future_to_info[future]
+                    n_frames = future.result()
+                    # Force the bar for this job to 100 %.
+                    pid = job_id_to_pid.get(jid)
+                    if pid is not None and pid in pid_to_bar:
+                        b = pid_to_bar[pid]
+                        if b.total and b.n != b.total:
+                            b.n = b.total
+                            b.refresh()
+                    if job.frames:
+                        tqdm.write(
+                            f"  -> saved {n_frames} frames"
+                            f" to {output_path}/"
+                        )
+                    else:
+                        tqdm.write(f"  -> saved {output_path}")
+                    summary.update(1)
+        # Close all per-worker bars.
+        for b in pid_to_bar.values():
+            b.close()
 
 
 if __name__ == "__main__":

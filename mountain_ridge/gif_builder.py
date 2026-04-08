@@ -3,6 +3,7 @@
 import math
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -259,6 +260,7 @@ def _simulate_frames(
     global_min: float,
     desc: str,
     progress_position: int | None,
+    on_progress: Callable[[int, int], None] | None = None,
     show_attractions: bool = False,
     show_best: bool = True,
 ) -> list[Image.Image]:
@@ -298,6 +300,9 @@ def _simulate_frames(
 
     frames: list[Image.Image] = [_frame(0)]
 
+    if on_progress is not None:
+        on_progress(0, n_iterations)
+
     with tqdm(
         total=n_iterations,
         desc=desc,
@@ -310,6 +315,8 @@ def _simulate_frames(
         for i in range(1, n_iterations + 1):
             swarm.update()
             bar.update(1)
+            if on_progress is not None:
+                on_progress(i, n_iterations)
             if detailed:
                 current = _lookup_best_score()
                 if current < best_ever:
@@ -351,6 +358,7 @@ def build_gif(
     show_best: bool = True,
     desc: str = "Simulating",
     progress_position: int | None = 0,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> None:
     """Run *swarm* for *n_iterations* and write an animated GIF.
 
@@ -397,6 +405,7 @@ def build_gif(
         global_min=score_lo,
         desc=desc,
         progress_position=progress_position,
+        on_progress=on_progress,
         show_attractions=show_attractions,
         show_best=show_best,
     )
@@ -444,6 +453,7 @@ def build_frames(
     show_best: bool = True,
     desc: str = "Simulating",
     progress_position: int | None = 0,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> int:
     """Run *swarm* and write each captured frame as an individual image.
 
@@ -488,6 +498,7 @@ def build_frames(
         global_min=score_lo,
         desc=desc,
         progress_position=progress_position,
+        on_progress=on_progress,
         show_attractions=show_attractions,
         show_best=show_best,
     )
