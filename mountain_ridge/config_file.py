@@ -33,6 +33,7 @@ class JobConfig:
     sa_t0: float | None
     sa_cooling_rate: float | None
     sa_step: float | None
+    noise: float
     detailed: bool
     show_attractions: bool
     frames: bool
@@ -83,6 +84,7 @@ def _build_jobs(
     sa_t0s: list[float | None],
     sa_cooling_rates: list[float | None],
     sa_steps: list[float | None],
+    noises: list[float],
     detailed: bool,
     show_attractions: bool,
     frames: bool,
@@ -100,9 +102,9 @@ def _build_jobs(
     jobs: list[JobConfig] = []
     for common in itertools.product(
         dimensions, seeds, spaces, n_agents_l,
-        iterations_l, ipf_l, fps_l, dot_sizes,
+        iterations_l, ipf_l, fps_l, dot_sizes, noises,
     ):
-        dims, seed, space, n_agents, iters, ipf, fps, dot = common
+        dims, seed, space, n_agents, iters, ipf, fps, dot, noise = common
         for algo in algorithms:
             if algo == "pso":
                 specific_iter = itertools.product(inertias)
@@ -170,6 +172,7 @@ def _build_jobs(
                     sa_t0=sa_t0,
                     sa_cooling_rate=sa_cooling_rate,
                     sa_step=sa_step,
+                    noise=noise,
                     detailed=detailed,
                     show_attractions=show_attractions,
                     frames=frames,
@@ -311,6 +314,9 @@ def load_config(path: Path) -> tuple[list[JobConfig], int]:
     sa_steps: list[float | None] = list(  # type: ignore[assignment]
         _get(sa_s, "step", [None])
     )
+    noises: list[float] = list(  # type: ignore[assignment]
+        _get(data, "noise", [0.0])
+    )
 
     jobs = _build_jobs(
         dimensions=dimensions,
@@ -333,6 +339,7 @@ def load_config(path: Path) -> tuple[list[JobConfig], int]:
         sa_t0s=sa_t0s,
         sa_cooling_rates=sa_cooling_rates,
         sa_steps=sa_steps,
+        noises=noises,
         detailed=detailed,
         show_attractions=show_attractions,
         frames=frames,

@@ -88,6 +88,7 @@ def _run_job(
         search_space=space_fn,
         dimensions=job.dimensions,
         seed=job.seed,
+        noise=job.noise,
     )
     if job.algorithm == "pso" and job.inertia is not None:
         kwargs["w"] = job.inertia

@@ -226,6 +226,18 @@ def parse_jobs() -> tuple[list[JobConfig], int]:
         ),
     )
     parser.add_argument(
+        "--noise",
+        nargs="+",
+        type=float,
+        default=[0.0],
+        metavar="A",
+        help=(
+            "Noise amplitude added to each agent's score evaluation. "
+            "Each evaluation receives a uniformly distributed random "
+            "value in [-A, A] (default: 0.0 — no noise)."
+        ),
+    )
+    parser.add_argument(
         "--no_gifsicle",
         action="store_true",
         default=False,
@@ -401,6 +413,7 @@ def parse_jobs() -> tuple[list[JobConfig], int]:
         sa_t0s=sa_t0s,
         sa_cooling_rates=sa_cooling_rates,
         sa_steps=sa_steps,
+        noises=args.noise,
         detailed=args.detailed,
         show_attractions=args.show_attractions,
         frames=args.frames,

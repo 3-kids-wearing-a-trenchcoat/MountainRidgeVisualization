@@ -7,7 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from mountain_ridge.swarm.base import (
-    Agent, AttractionVector, Position, SearchSpace, Swarm,
+    Agent, AttractionVector, Position, SearchSpace, Swarm, _make_noisy,
 )
 
 _SNAPSHOT_KEY = "snapshot"
@@ -122,6 +122,7 @@ class FASwarm(Swarm):
         alpha: float | None = None,
         variant: str = "brownian",
         levy_exp: float = 1.5,
+        noise: float = 0.0,
     ) -> None:
         w_dim, h_dim = dimensions
         min_dim = min(w_dim, h_dim)
@@ -143,7 +144,10 @@ class FASwarm(Swarm):
         self._agents = [
             FAAgent(
                 position=positions[i],
-                search_space=search_space,
+                search_space=(
+                    _make_noisy(search_space, noise, agent_rngs[i])
+                    if noise > 0 else search_space
+                ),
                 bounds=dimensions,
                 beta0=beta0,
                 gamma=resolved_gamma,

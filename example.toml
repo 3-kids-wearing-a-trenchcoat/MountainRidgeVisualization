@@ -99,6 +99,15 @@ fps = [12]
 # Empty list or omit → auto-scaled to max(2, round(min(W,H) / 35)).
 dot_size = []
 
+# Noise amplitude for agent evaluations.
+# When non-zero, every time an agent reads the height at its current (or
+# candidate) position the value it receives is perturbed by a uniformly
+# distributed random value in [-A, A].  Simulates imperfect sensors or a
+# noisy objective function.  Affects all algorithms equally.
+# 0.0 → deterministic evaluations (default).
+# List → one job per amplitude, e.g. [0.0, 2.0, 4.0] for a noise sweep.
+noise = [0.0]
+
 # ── PSO-specific parameters ───────────────────────────────────────────────────
 # Only consulted when algorithm includes "pso".  Ignored otherwise.
 

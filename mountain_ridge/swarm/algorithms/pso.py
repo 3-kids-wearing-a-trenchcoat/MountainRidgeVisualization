@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from mountain_ridge.swarm.base import (
-    Agent, AttractionVector, Position, SearchSpace, Swarm,
+    Agent, AttractionVector, Position, SearchSpace, Swarm, _make_noisy,
 )
 
 _G_KEY = "g"
@@ -105,6 +105,7 @@ class PSOSwarm(Swarm):
         c2: float = 1.5,
         w: float = 0.0,
         v_max: float | None = None,
+        noise: float = 0.0,
     ) -> None:
         w_dim, h_dim = dimensions
         if v_max is None:
@@ -121,7 +122,10 @@ class PSOSwarm(Swarm):
         self._agents = [
             PSOAgent(
                 position=positions[i],
-                search_space=search_space,
+                search_space=(
+                    _make_noisy(search_space, noise, agent_rngs[i])
+                    if noise > 0 else search_space
+                ),
                 bounds=dimensions,
                 c1=c1,
                 c2=c2,

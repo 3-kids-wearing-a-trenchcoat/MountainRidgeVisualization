@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from mountain_ridge.swarm.base import (
-    Agent, AttractionVector, Position, SearchSpace, Swarm,
+    Agent, AttractionVector, Position, SearchSpace, Swarm, _make_noisy,
 )
 
 _T_MIN: float = 1e-4   # temperature floor; cooling halts here
@@ -102,6 +102,7 @@ class SASwarm(Swarm):
         t0: float,
         cooling_rate: float = 0.95,
         step_size: float | None = None,
+        noise: float = 0.0,
     ) -> None:
         w_dim, h_dim = dimensions
         resolved_step = (
@@ -120,7 +121,10 @@ class SASwarm(Swarm):
         self._agents = [
             SAAgent(
                 position=positions[i],
-                search_space=search_space,
+                search_space=(
+                    _make_noisy(search_space, noise, agent_rngs[i])
+                    if noise > 0 else search_space
+                ),
                 bounds=dimensions,
                 t0=t0,
                 cooling_rate=cooling_rate,

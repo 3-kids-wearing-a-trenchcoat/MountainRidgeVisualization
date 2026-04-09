@@ -5,9 +5,25 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 
 Position = tuple[float, ...]
 SearchSpace = Callable[[Position], float]
+
+
+def _make_noisy(
+    space_fn: SearchSpace,
+    amplitude: float,
+    rng: np.random.Generator,
+) -> SearchSpace:
+    """Wrap *space_fn* so every evaluation adds uniform noise.
+
+    The noise is sampled independently on each call from
+    Uniform(-amplitude, amplitude) using *rng*.
+    """
+    def noisy(pos: Position) -> float:
+        return float(space_fn(pos)) + rng.uniform(-amplitude, amplitude)
+    return noisy
 
 
 @dataclass(frozen=True)

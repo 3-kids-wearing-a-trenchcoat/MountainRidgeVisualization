@@ -155,6 +155,7 @@ The counter `NN` increments automatically to avoid overwriting existing files.
 | `--sa_t0`                |       | `float`  | *(auto)*   | **SA only.** Initial temperature `T₀`. Default: `0.3 · (f_max − f_min)` of the search space. Only applied to SA jobs; ignored for other algorithms.                                                                            |
 | `--sa_cooling_rate`      |       | `float`  | `0.95`     | **SA only.** Geometric cooling factor `α` applied each iteration: `T ← α · T`. Only applied to SA jobs; ignored for other algorithms.                                                                                          |
 | `--sa_step`              |       | `float`  | *(auto)*   | **SA only.** Half-width of the uniform neighbour proposal step. Default scales with the grid: `0.1 · min(W, H)`. Only applied to SA jobs; ignored for other algorithms.                                                         |
+| `--noise`                |       | `float`  | `0.0`      | Noise amplitude for agent evaluations. When non-zero, every height reading an agent makes is perturbed by a value drawn uniformly from `[−A, A]`. Applies to all algorithms. See [Noisy evaluation](#noisy-evaluation). |
 | `--dot_size`             |       | `int`    | *(auto)*   | Agent dot radius in pixels. Omit to scale automatically: `max(2, round(min(W, H) / 35))`                                                                                                                        |
 | `--show_attractions`     |       | flag     | off        | Draw arrows from each agent toward its attraction points. Arrow length encodes influence strength; colour encodes kind. See [Attraction arrows](#attraction-arrows).                                              |
 | `--detailed`             |       | flag     | off        | Append a statistics bar (150 px wide) to the right of every frame. See [Detailed output](#detailed-output).                                                                                                     |
@@ -229,6 +230,25 @@ probability `e⁻¹ ≈ 37%`.
 
 **No communication** — agents share no memory. The yellow best-position marker
 tracks the lowest score found by any individual agent's personal best.
+
+### Noisy evaluation
+
+Pass `--noise A` to add uniform random noise to every height reading any agent
+makes. Each evaluation returns `true_height + U(−A, A)` where `A` is the
+amplitude you supply. The noise is sampled independently per evaluation, using
+each agent's own seeded RNG, so runs are still fully reproducible when a
+`--seed` is given.
+
+Noise affects **all** height readings: the initial score at startup, the score
+check after each move, and any intermediate probes made during an iteration
+(e.g. gradient finite-differences in SD, candidate evaluation in SA).
+
+This is useful for:
+- Simulating sensor noise or a stochastic objective function.
+- Studying how robust an algorithm is to imperfect feedback.
+- Generating varied visual behaviour without changing the underlying landscape.
+
+`--noise 0.0` (the default) is a no-op — evaluations are fully deterministic.
 
 ### Detailed output
 
@@ -383,4 +403,10 @@ python -m mountain_ridge --algorithm sa --sa_cooling_rate 0.99 --seed 42 --dimen
 
 # Side-by-side comparison: SA vs SD on the same seed
 python -m mountain_ridge --algorithm sa sd --seed 42 --dimensions 200x200
+
+# Noisy evaluation — agents perceive heights with amplitude-4 uniform noise
+python -m mountain_ridge --noise 4 --seed 42 --dimensions 200x200
+
+# Noise sweep — compare noiseless, moderate, and heavy noise on the same seed
+python -m mountain_ridge --noise 0 2 4 --seed 42 --dimensions 200x200
 ```

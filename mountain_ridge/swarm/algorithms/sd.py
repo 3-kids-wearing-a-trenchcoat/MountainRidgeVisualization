@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from mountain_ridge.swarm.base import (
-    Agent, AttractionVector, Position, SearchSpace, Swarm,
+    Agent, AttractionVector, Position, SearchSpace, Swarm, _make_noisy,
 )
 
 # --- Fixed implementation constants (not user-facing) ---
@@ -131,6 +131,7 @@ class SDSwarm(Swarm):
         seed: int,
         step: float | None = None,
         alpha: float = 0.0,
+        noise: float = 0.0,
     ) -> None:
         w_dim, h_dim = dimensions
         resolved_step = (
@@ -148,7 +149,10 @@ class SDSwarm(Swarm):
         self._agents = [
             SDAgent(
                 position=positions[i],
-                search_space=search_space,
+                search_space=(
+                    _make_noisy(search_space, noise, agent_rngs[i])
+                    if noise > 0 else search_space
+                ),
                 bounds=dimensions,
                 step=resolved_step,
                 alpha=alpha,
